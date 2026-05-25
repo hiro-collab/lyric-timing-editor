@@ -40,6 +40,7 @@ Export targets:
 - LRC: a synchronized lyric player export that includes lyric text.
 
 See `docs/export-formats.md` for details.
+See `SECURITY.md` and `PRIVACY.md` for the static local-browser security and privacy boundaries.
 
 ## Important Rights Note
 

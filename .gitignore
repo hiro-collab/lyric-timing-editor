@@ -2,6 +2,9 @@ node_modules/
 dist/
 _worktrees/
 *.local
+.env
+.env.*
+!.env.example
 .DS_Store
 Thumbs.db
 

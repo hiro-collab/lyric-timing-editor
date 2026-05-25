@@ -16,8 +16,8 @@ These decisions should be settled before presenting Lyric Timing Editor as a bro
 
 ## Privacy
 
-- The current app processes audio and lyrics locally in the browser and has no backend upload path. Should the repository include a formal `PRIVACY.md` that states this?
-- Autosave uses browser IndexedDB and may contain pasted lyric text. Should the app expose a visible "clear local data" control beyond the existing draft discard action?
+- The repository includes `PRIVACY.md` for the current local-browser/no-upload model. Who should approve future privacy changes?
+- Autosave uses browser IndexedDB and may contain pasted lyric text. The app exposes a visible Clear Draft action; should any additional browser storage be cleared if future preferences are added?
 - Should analytics be explicitly prohibited unless a later privacy review approves them?
 
 ## Sample Data

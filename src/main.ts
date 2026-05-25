@@ -1,9 +1,9 @@
 import {
-  LYRIC_TIMING_PROJECT_SCHEMA,
   createLyricTimingProject,
   makeLrcExport,
   makeLyricTimingExport,
   makeWebVttExport,
+  normalizeLyricTimingProjectInput,
   updateLyricTimingProjectMetadata,
   validateLyricTimingProject,
   type LyricTimingIssue,
@@ -71,6 +71,13 @@ const MIN_TIMING_GAP_MS = 1;
 const TIMING_NUDGE_MS = 10;
 const DRAG_START_THRESHOLD_PX = 3;
 const FINE_DRAG_SCALE = 0.16;
+const MAX_LYRIC_TEXT_BYTES = 1_000_000;
+const MAX_PROJECT_JSON_BYTES = 2_000_000;
+const MAX_AUDIO_BYTES = 512 * 1024 * 1024;
+const MAX_LYRIC_PHRASES = 5_000;
+const LYRIC_FILE_EXTENSIONS = [".txt", ".lrc"];
+const PROJECT_FILE_EXTENSIONS = [".json"];
+const AUDIO_FILE_EXTENSIONS = [".aac", ".flac", ".m4a", ".mp3", ".ogg", ".wav"];
 const SAFE_DEMO_LYRIC_TEXT = [
   "# synthetic demo",
   "\\#hash marker stays lyric text",
@@ -106,6 +113,7 @@ const i18n: Record<Language, Record<string, string>> = {
     exportLrc: "LRC",
     exportLyricsRequiredHint: "歌詞権利確認が必要",
     help: "Help",
+    clearLocalData: "下書き削除",
     audioFile: "音源",
     duration: "長さ",
     projectState: "Project",
@@ -133,6 +141,8 @@ const i18n: Record<Language, Record<string, string>> = {
     autosaveSaving: "自動保存中",
     autosaveSaved: "自動保存済み {time}",
     autosaveError: "自動保存失敗",
+    autosaveErrorDetail: "ブラウザのローカルストレージにアクセスできませんでした",
+    autosaveSkippedLargeDraft: "元テキストが大きすぎるため自動保存を停止しました",
     autosaveUnavailable: "自動保存不可",
     draftAvailableTitle: "前回の未保存作業があります",
     draftAvailableBody: "{time} の自動保存下書きがあります。音源ファイル本体は含まれません。",
@@ -170,6 +180,7 @@ const i18n: Record<Language, Record<string, string>> = {
     helpIntro: "ローカル音源とUTF-8の歌詞テキストを読み込み、曲を再生しながら現在/次のフレーズを打刻します。",
     helpRights: "歌詞本文を含むファイルを公開、配布、アップロード、GitHubへコミットする前に、歌詞の権利と配布先の利用条件を確認してください。",
     helpAudio: "音源はブラウザ内で再生するだけです。Projectにはファイル名と任意の長さ情報だけを保存します。",
+    helpLocalDraft: "自動保存下書きはこのブラウザのIndexedDBに保存され、歌詞テキストを含むことがあります。",
     lyricsPlaceholder: "# verse\\n\\#歌詞の先頭に#を出したい場合\\n\\n歌詞の1行が1フレーズになります",
     untitled: "Untitled",
     unknownArtist: "Unknown artist",
@@ -198,14 +209,24 @@ const i18n: Record<Language, Record<string, string>> = {
     draftRestored: "自動保存下書きを復元しました。音源ファイルは再読み込みしてください",
     draftDiscarded: "自動保存下書きを削除しました",
     draftDownloaded: "自動保存下書きをProject JSONとしてダウンロードしました",
-    draftSaveFailed: "自動保存に失敗しました: {reason}",
+    draftSaveFailed: "自動保存に失敗しました。ブラウザのストレージ権限と空き容量を確認してください",
     unsupportedProject: "対応していないProject schemaです",
+    invalidProjectFile: "Project JSONを読み込めませんでした。ファイル形式を確認してください",
+    unsafeProjectFile: "Project JSONに、このEditorで安全に扱えない値が含まれていました",
+    projectTooLarge: "Project JSONが大きすぎます。上限は {limit} です",
+    sourceTextTooLarge: "元テキストが大きすぎます。上限は {limit} です",
+    tooManyPhrases: "フレーズ数が多すぎます。上限は {limit} 件です",
+    unsupportedLyricsFile: "歌詞ファイルは .txt または .lrc のUTF-8テキストだけ読み込めます",
+    unsupportedAudioFile: "音源ファイルは一般的なaudio形式だけ読み込めます",
+    fileTooLarge: "{name} は大きすぎます。上限は {limit} です",
+    fileReadFailed: "ファイルを読み込めませんでした。別のファイルを選択してください",
+    localDraftCleared: "このブラウザの自動保存下書きを削除しました",
     exportedWithLyrics: "歌詞込みJSONを書き出しました",
     exportedTimingOnly: "TimingのみJSONを書き出しました",
     exportedWebVtt: "WebVTTを書き出しました",
     exportedLrc: "LRCを書き出しました",
     loadAudioFirst: "再生には音源ファイルを読み込んでください。Project内の音源名だけでは再生できません",
-    audioPlaybackFailed: "再生できませんでした: {reason}",
+    audioPlaybackFailed: "再生できませんでした。別の音源ファイルを選択してください",
     selectionEmpty: "フレーズが選択されていません",
     selectedAll: "すべてのフレーズを選択しました",
     selectedPhrases: "{count} 件を選択しました",
@@ -263,6 +284,7 @@ const i18n: Record<Language, Record<string, string>> = {
     exportLrc: "LRC",
     exportLyricsRequiredHint: "Requires lyric rights confirmation",
     help: "Help",
+    clearLocalData: "Clear Draft",
     audioFile: "Audio",
     duration: "Duration",
     projectState: "Project",
@@ -290,6 +312,8 @@ const i18n: Record<Language, Record<string, string>> = {
     autosaveSaving: "autosaving",
     autosaveSaved: "autosaved {time}",
     autosaveError: "autosave failed",
+    autosaveErrorDetail: "Browser local storage could not be accessed",
+    autosaveSkippedLargeDraft: "Autosave paused because the source text is too large",
     autosaveUnavailable: "autosave unavailable",
     draftAvailableTitle: "Unsaved local draft found",
     draftAvailableBody: "A local autosave draft from {time} is available. Audio file content is not included.",
@@ -327,6 +351,7 @@ const i18n: Record<Language, Record<string, string>> = {
     helpIntro: "Load a local audio file and a UTF-8 lyric text file, then stamp the current or next phrase while playing the song.",
     helpRights: "Before publishing, distributing, uploading, or committing files that include lyric text, confirm the lyric rights and the destination terms.",
     helpAudio: "Audio only plays in the browser session. The project stores only file name and optional duration metadata.",
+    helpLocalDraft: "Autosave drafts are stored in this browser's IndexedDB and may include lyric text.",
     lyricsPlaceholder: "# verse\\n\\#hash can be lyric text\\n\\nEach lyric line becomes one phrase",
     untitled: "Untitled",
     unknownArtist: "Unknown artist",
@@ -355,14 +380,24 @@ const i18n: Record<Language, Record<string, string>> = {
     draftRestored: "Autosave draft restored. Load the audio file again before playback",
     draftDiscarded: "Autosave draft deleted",
     draftDownloaded: "Autosave draft downloaded as Project JSON",
-    draftSaveFailed: "Autosave failed: {reason}",
+    draftSaveFailed: "Autosave failed. Check browser storage permissions and free space",
     unsupportedProject: "Unsupported project schema",
+    invalidProjectFile: "Could not load Project JSON. Check the file format",
+    unsafeProjectFile: "Project JSON contained values this editor cannot safely handle",
+    projectTooLarge: "Project JSON is too large. Limit: {limit}",
+    sourceTextTooLarge: "Source text is too large. Limit: {limit}",
+    tooManyPhrases: "Too many phrases. Limit: {limit}",
+    unsupportedLyricsFile: "Lyrics files must be UTF-8 .txt or .lrc text",
+    unsupportedAudioFile: "Audio files must use a common audio format",
+    fileTooLarge: "{name} is too large. Limit: {limit}",
+    fileReadFailed: "Could not read the file. Choose another file",
+    localDraftCleared: "Deleted this browser's autosave draft",
     exportedWithLyrics: "Exported with lyrics",
     exportedTimingOnly: "Exported timing only",
     exportedWebVtt: "Exported WebVTT",
     exportedLrc: "Exported LRC",
     loadAudioFirst: "Load the audio file before playback. A project can store the audio name, but not the audio itself",
-    audioPlaybackFailed: "Could not start playback: {reason}",
+    audioPlaybackFailed: "Could not play the audio. Choose another audio file",
     selectionEmpty: "No phrases are selected",
     selectedAll: "Selected all phrases",
     selectedPhrases: "Selected {count} phrases",
@@ -432,6 +467,7 @@ const elements = {
   exportMenu: byId<HTMLDetailsElement>("export-menu"),
   languageToggle: byId<HTMLButtonElement>("language-toggle"),
   helpOpen: byId<HTMLButtonElement>("help-open"),
+  clearLocalData: byId<HTMLButtonElement>("clear-local-data"),
   helpDialog: byId<HTMLDialogElement>("help-dialog"),
   projectDetails: byId<HTMLButtonElement>("project-details"),
   projectDetailsDialog: byId<HTMLDialogElement>("project-details-dialog"),
@@ -519,6 +555,103 @@ const setStatus = (key: string, values?: Record<string, string | number>) => {
   render();
 };
 
+const textEncoder = new TextEncoder();
+
+const isRecord = (value: unknown): value is Record<string, unknown> => (
+  typeof value === "object" && value !== null && !Array.isArray(value)
+);
+
+const utf8ByteLength = (value: string) => textEncoder.encode(value).length;
+
+const formatBytes = (bytes: number) => {
+  if (bytes >= 1024 * 1024) return `${Math.round(bytes / (1024 * 1024))} MB`;
+  if (bytes >= 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${bytes} B`;
+};
+
+const fileNameHasExtension = (file: File, extensions: string[]) => {
+  const lowerName = file.name.toLowerCase();
+  return extensions.some((extension) => lowerName.endsWith(extension));
+};
+
+const validateSelectedFile = (
+  file: File,
+  options: {
+    maxBytes: number;
+    extensions: string[];
+    acceptsType: (type: string) => boolean;
+    invalidStatus: string;
+  }
+) => {
+  if (file.size > options.maxBytes) {
+    setStatus("fileTooLarge", { name: file.name, limit: formatBytes(options.maxBytes) });
+    return false;
+  }
+  const hasAllowedType = file.type ? options.acceptsType(file.type.toLowerCase()) : false;
+  if (!hasAllowedType && !fileNameHasExtension(file, options.extensions)) {
+    setStatus(options.invalidStatus, { name: file.name });
+    return false;
+  }
+  return true;
+};
+
+const projectImportStatusKey = (reason: string) => {
+  switch (reason) {
+    case "unsupported-schema":
+      return "unsupportedProject";
+    case "source-too-large":
+      return "sourceTextTooLarge";
+    case "too-many-phrases":
+      return "tooManyPhrases";
+    case "not-object":
+    case "missing-source":
+    default:
+      return "unsafeProjectFile";
+  }
+};
+
+const normalizeSavedAt = (value: unknown) => {
+  if (typeof value !== "string") return new Date().toISOString();
+  const time = Date.parse(value);
+  return Number.isFinite(time) ? new Date(time).toISOString() : new Date().toISOString();
+};
+
+const normalizeDraftIndex = (value: unknown, phraseCount: number, fallback: number) => {
+  if (typeof value !== "number" || !Number.isInteger(value) || phraseCount <= 0) return fallback;
+  return Math.min(Math.max(value, 0), phraseCount - 1);
+};
+
+const normalizeAutoSaveDraft = (value: unknown): AutoSaveDraft | null => {
+  if (!isRecord(value) || value.schema !== AUTOSAVE_SCHEMA) return null;
+  const normalized = normalizeLyricTimingProjectInput(value.project);
+  if (!normalized.ok) return null;
+
+  const phraseCount = normalized.project.phrases.length;
+  const sourceText = typeof value.sourceText === "string"
+    ? value.sourceText
+    : normalized.project.lines.map((line) => line.rawText).join("\n");
+  if (utf8ByteLength(sourceText) > MAX_LYRIC_TEXT_BYTES) return null;
+
+  const selectedPhraseIndexes = Array.isArray(value.selectedPhraseIndexes)
+    ? [...new Set(value.selectedPhraseIndexes.filter((index): index is number => (
+        typeof index === "number" && Number.isInteger(index) && index >= 0 && index < phraseCount
+      )))]
+    : [];
+  const selectionAnchorIndex = normalizeDraftIndex(value.selectionAnchorIndex, phraseCount, -1);
+
+  return {
+    id: AUTOSAVE_RECORD_ID,
+    schema: AUTOSAVE_SCHEMA,
+    savedAt: normalizeSavedAt(value.savedAt),
+    sourceText,
+    project: normalized.project,
+    selectedPhraseIndex: normalizeDraftIndex(value.selectedPhraseIndex, phraseCount, 0),
+    focusMode: value.focusMode === "manual" ? "manual" : "follow",
+    selectedPhraseIndexes,
+    selectionAnchorIndex: selectionAnchorIndex >= 0 ? selectionAnchorIndex : null
+  };
+};
+
 const cloneProject = (value: LyricTimingProject): LyricTimingProject => structuredClone(value);
 
 const snapshot = (): Snapshot => ({
@@ -586,8 +719,7 @@ const readAutoSaveDraft = async () => {
     const transaction = db.transaction(AUTOSAVE_STORE_NAME, "readonly");
     const request = transaction.objectStore(AUTOSAVE_STORE_NAME).get(AUTOSAVE_RECORD_ID);
     request.onsuccess = () => {
-      const value = request.result as AutoSaveDraft | undefined;
-      resolve(value?.schema === AUTOSAVE_SCHEMA ? value : null);
+      resolve(normalizeAutoSaveDraft(request.result));
     };
     request.onerror = () => reject(request.error ?? new Error("IndexedDB read failed"));
     transaction.oncomplete = () => db.close();
@@ -746,11 +878,10 @@ const flushAutoSaveDraft = async () => {
       autoSaveStatus = "idle";
     }
     pendingDraft = null;
-  } catch (error) {
-    const reason = error instanceof Error && error.message ? error.message : "unknown";
-    autoSaveError = reason;
+  } catch {
+    autoSaveError = text("autosaveErrorDetail");
     autoSaveStatus = "error";
-    setStatus("draftSaveFailed", { reason });
+    setStatus("draftSaveFailed");
   }
   renderAutoSaveStatus();
 };
@@ -758,6 +889,14 @@ const flushAutoSaveDraft = async () => {
 const queueAutoSave = () => {
   if (!("indexedDB" in window)) {
     autoSaveStatus = "unavailable";
+    renderAutoSaveStatus();
+    return;
+  }
+
+  if (utf8ByteLength(elements.lyricsText.value) > MAX_LYRIC_TEXT_BYTES) {
+    pendingDraft = null;
+    autoSaveStatus = "error";
+    autoSaveError = text("autosaveSkippedLargeDraft");
     renderAutoSaveStatus();
     return;
   }
@@ -800,7 +939,7 @@ const restoreAutoSaveDraft = () => {
   setStatus("draftRestored");
 };
 
-const discardAutoSaveDraft = async () => {
+const discardAutoSaveDraft = async (statusKey = "draftDiscarded") => {
   try {
     if (autoSaveTimer !== null) {
       window.clearTimeout(autoSaveTimer);
@@ -812,12 +951,11 @@ const discardAutoSaveDraft = async () => {
     lastAutoSaveKey = "";
     autoSaveSavedAt = null;
     autoSaveStatus = "idle";
-    setStatus("draftDiscarded");
-  } catch (error) {
-    const reason = error instanceof Error && error.message ? error.message : "unknown";
-    autoSaveError = reason;
+    setStatus(statusKey);
+  } catch {
+    autoSaveError = text("autosaveErrorDetail");
     autoSaveStatus = "error";
-    setStatus("draftSaveFailed", { reason });
+    setStatus("draftSaveFailed");
   }
 };
 
@@ -844,8 +982,8 @@ const initializeAutoSave = async () => {
     } else {
       autoSaveStatus = "idle";
     }
-  } catch (error) {
-    autoSaveError = error instanceof Error && error.message ? error.message : "unknown";
+  } catch {
+    autoSaveError = text("autosaveErrorDetail");
     autoSaveStatus = "error";
   }
   render();
@@ -1416,13 +1554,22 @@ const showExportIssues = (issues: LyricTimingIssue[]) => {
 };
 
 const parseLyrics = () => {
+  if (utf8ByteLength(elements.lyricsText.value) > MAX_LYRIC_TEXT_BYTES) {
+    setStatus("sourceTextTooLarge", { limit: formatBytes(MAX_LYRIC_TEXT_BYTES) });
+    return;
+  }
   applyMetadata();
-  project = createLyricTimingProject({
+  const nextProject = createLyricTimingProject({
     ...currentMetadata(),
     parseMode: elements.parseMode.value as LyricTextParseMode,
     lyricText: elements.lyricsText.value,
     now: new Date()
   });
+  if (nextProject.phrases.length > MAX_LYRIC_PHRASES) {
+    setStatus("tooManyPhrases", { limit: MAX_LYRIC_PHRASES });
+    return;
+  }
+  project = nextProject;
   selectedPhraseIndex = 0;
   focusMode = "follow";
   clearSelection();
@@ -1661,9 +1808,8 @@ const togglePlayback = async () => {
   if (elements.audioPlayer.paused) {
     try {
       await elements.audioPlayer.play();
-    } catch (error) {
-      const reason = error instanceof Error && error.message ? error.message : text("loadAudioFirst");
-      setStatus("audioPlaybackFailed", { reason });
+    } catch {
+      setStatus("audioPlaybackFailed");
     }
   } else {
     elements.audioPlayer.pause();
@@ -1945,13 +2091,34 @@ elements.lyricsText.addEventListener("input", queueAutoSave);
 elements.lyricsInput.addEventListener("change", async () => {
   const file = elements.lyricsInput.files?.[0];
   if (!file) return;
-  elements.lyricsText.value = await file.text();
-  parseLyrics();
+  try {
+    if (!validateSelectedFile(file, {
+      maxBytes: MAX_LYRIC_TEXT_BYTES,
+      extensions: LYRIC_FILE_EXTENSIONS,
+      acceptsType: (type) => type.startsWith("text/") || type === "application/octet-stream",
+      invalidStatus: "unsupportedLyricsFile"
+    })) return;
+    elements.lyricsText.value = await file.text();
+    parseLyrics();
+  } catch {
+    setStatus("fileReadFailed");
+  } finally {
+    elements.lyricsInput.value = "";
+  }
 });
 
 elements.audioInput.addEventListener("change", async () => {
   const file = elements.audioInput.files?.[0];
   if (!file) return;
+  if (!validateSelectedFile(file, {
+    maxBytes: MAX_AUDIO_BYTES,
+    extensions: AUDIO_FILE_EXTENSIONS,
+    acceptsType: (type) => type.startsWith("audio/"),
+    invalidStatus: "unsupportedAudioFile"
+  })) {
+    elements.audioInput.value = "";
+    return;
+  }
   if (audioObjectUrl) URL.revokeObjectURL(audioObjectUrl);
   audioObjectUrl = URL.createObjectURL(file);
   elements.audioPlayer.src = audioObjectUrl;
@@ -1967,6 +2134,7 @@ elements.audioInput.addEventListener("change", async () => {
   previewTimeMs = 0;
   setStatus("audioUpdated");
   queueAutoSave();
+  elements.audioInput.value = "";
 });
 
 for (const input of [elements.title, elements.artist, elements.slug, elements.duration, elements.songUrl, elements.songleUrl, elements.textAliveUrl, elements.notes]) {
@@ -1989,10 +2157,30 @@ elements.saveProject.addEventListener("click", () => {
 elements.projectInput.addEventListener("change", async () => {
   const file = elements.projectInput.files?.[0];
   if (!file) return;
-  let loaded = JSON.parse(await file.text()) as LyricTimingProject;
-  if (loaded.schema !== LYRIC_TIMING_PROJECT_SCHEMA) {
-    setStatus("unsupportedProject");
+  let loaded: LyricTimingProject;
+  try {
+    if (!validateSelectedFile(file, {
+      maxBytes: MAX_PROJECT_JSON_BYTES,
+      extensions: PROJECT_FILE_EXTENSIONS,
+      acceptsType: (type) => type === "application/json" || type === "application/octet-stream",
+      invalidStatus: "invalidProjectFile"
+    })) return;
+    const normalized = normalizeLyricTimingProjectInput(JSON.parse(await file.text()));
+    if (!normalized.ok) {
+      const statusKey = projectImportStatusKey(normalized.reason);
+      setStatus(statusKey, {
+        limit: statusKey === "tooManyPhrases"
+          ? MAX_LYRIC_PHRASES
+          : formatBytes(statusKey === "sourceTextTooLarge" ? MAX_LYRIC_TEXT_BYTES : MAX_PROJECT_JSON_BYTES)
+      });
+      return;
+    }
+    loaded = normalized.project;
+  } catch {
+    setStatus("invalidProjectFile");
     return;
+  } finally {
+    elements.projectInput.value = "";
   }
   const sanitized = sanitizeProjectTimingOrder(loaded);
   if (sanitized.violationCount > 0) {
@@ -2060,6 +2248,9 @@ elements.projectDetails.addEventListener("click", () => elements.projectDetailsD
 elements.helpOpen.addEventListener("click", () => elements.helpDialog.showModal());
 elements.restoreDraft.addEventListener("click", restoreAutoSaveDraft);
 elements.downloadDraft.addEventListener("click", downloadAutoSaveDraft);
+elements.clearLocalData.addEventListener("click", () => {
+  void discardAutoSaveDraft("localDraftCleared");
+});
 elements.discardDraft.addEventListener("click", () => {
   void discardAutoSaveDraft();
 });
@@ -2111,8 +2302,7 @@ elements.audioPlayer.addEventListener("timeupdate", () => {
 });
 elements.audioPlayer.addEventListener("loadedmetadata", () => render());
 elements.audioPlayer.addEventListener("error", () => {
-  const reason = elements.audioPlayer.error?.message ?? text("loadAudioFirst");
-  setStatus("audioPlaybackFailed", { reason });
+  setStatus("audioPlaybackFailed");
 });
 elements.audioPlayer.addEventListener("play", () => render());
 elements.audioPlayer.addEventListener("pause", () => render());

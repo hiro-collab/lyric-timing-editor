@@ -4,6 +4,11 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#f4fbf7" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' http://127.0.0.1:* ws://127.0.0.1:* http://localhost:* ws://localhost:*; object-src 'none'; base-uri 'none'; form-action 'none'"
+    />
+    <meta name="referrer" content="no-referrer" />
     <title>Lyric Timing Editor</title>
   </head>
   <body>
@@ -89,6 +94,7 @@
             </div>
           </details>
           <button id="language-toggle" type="button" class="ghost-action" aria-label="Language">JA / EN</button>
+          <button id="clear-local-data" type="button" class="ghost-action" data-i18n="clearLocalData">Clear Draft</button>
           <button id="help-open" type="button" class="ghost-action" data-i18n="help">Help</button>
         </nav>
       </header>
@@ -289,6 +295,7 @@
             <p data-i18n="helpIntro">Load a local audio file and a UTF-8 lyric text file, then use the current and next phrase controls while playing the song.</p>
             <p data-i18n="helpRights">Before publishing, distributing, uploading, or committing files that include lyric text, confirm the lyric rights and the destination terms.</p>
             <p data-i18n="helpAudio">Audio stays in the browser session. The project stores only the file name and optional duration metadata.</p>
+            <p data-i18n="helpLocalDraft">Autosave drafts are stored in this browser's IndexedDB and may include lyric text.</p>
             <section class="shortcut-list">
               <h3 data-i18n="shortcuts">Shortcuts</h3>
               <dl>

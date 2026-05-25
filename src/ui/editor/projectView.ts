@@ -1,8 +1,20 @@
 import type { LyricTimingIssue, LyricTimingProject } from "../../lyrics";
 
 const formatMs = (value: number | null | undefined) => (
-  value === null || value === undefined ? "unmarked" : `${value} ms (${(value / 1000).toFixed(3)}s)`
+  typeof value === "number" && Number.isFinite(value)
+    ? `${Math.max(0, Math.round(value))} ms (${(Math.max(0, Math.round(value)) / 1000).toFixed(3)}s)`
+    : "unmarked"
 );
+
+const makeTimeEntry = (label: string, value: number | null | undefined) => {
+  const wrapper = document.createElement("div");
+  const term = document.createElement("dt");
+  const description = document.createElement("dd");
+  term.textContent = label;
+  description.textContent = formatMs(value);
+  wrapper.append(term, description);
+  return wrapper;
+};
 
 export const renderLineList = (container: HTMLElement, project: LyricTimingProject) => {
   container.replaceChildren(...project.lines.map((line) => {
@@ -46,10 +58,10 @@ export const renderPhraseList = (container: HTMLElement, project: LyricTimingPro
 
     const times = document.createElement("dl");
     times.className = "time-grid";
-    times.innerHTML = `
-      <div><dt>startTimeMs</dt><dd>${formatMs(phrase.startTimeMs)}</dd></div>
-      <div><dt>endTimeMs</dt><dd>${formatMs(phrase.endTimeMs)}</dd></div>
-    `;
+    times.append(
+      makeTimeEntry("startTimeMs", phrase.startTimeMs),
+      makeTimeEntry("endTimeMs", phrase.endTimeMs)
+    );
 
     row.append(head, text, times);
     return row;

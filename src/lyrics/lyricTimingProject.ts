@@ -34,22 +34,158 @@ export type ParsedLyricText = {
   phrases: LyricTimingPhrase[];
 };
 
+export type NormalizeLyricTimingProjectInputResult =
+  | { ok: true; project: LyricTimingProject }
+  | {
+      ok: false;
+      reason:
+        | "not-object"
+        | "unsupported-schema"
+        | "missing-source"
+        | "source-too-large"
+        | "too-many-phrases";
+    };
+
+export const MAX_IMPORTED_PROJECT_SOURCE_LENGTH = 1_000_000;
+export const MAX_IMPORTED_PROJECT_PHRASES = 5_000;
+
+const MAX_IMPORTED_PROJECT_LINES = 10_000;
+const MAX_METADATA_LENGTH = 500;
+const MAX_URL_LENGTH = 2_048;
+const MAX_NOTES_LENGTH = 10_000;
+const MAX_FILE_NAME_LENGTH = 255;
+const MAX_SLUG_LENGTH = 64;
+const MAX_SONGLE_CODE_LENGTH = 128;
+const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+type UnknownRecord = Record<string, unknown>;
+type ImportedProjectSourceResult =
+  | { ok: true; sourceText: string }
+  | {
+      ok: false;
+      reason:
+        | "missing-source"
+        | "source-too-large"
+        | "too-many-phrases";
+    };
+
 const padId = (value: number) => String(value).padStart(4, "0");
 
-const normalizeOptionalString = (value: string | undefined) => {
-  const trimmed = value?.trim();
+const isRecord = (value: unknown): value is UnknownRecord => (
+  typeof value === "object" && value !== null && !Array.isArray(value)
+);
+
+const normalizeOptionalString = (value: string | undefined, maxLength = MAX_METADATA_LENGTH) => {
+  const trimmed = value?.replace(/\u0000/g, "").trim().slice(0, maxLength);
   return trimmed ? trimmed : undefined;
 };
 
 export const normalizeSlug = (value: string | undefined) => {
-  const trimmed = value?.trim().toLowerCase();
-  return trimmed ? trimmed : undefined;
+  const trimmed = value?.trim().toLowerCase().slice(0, MAX_SLUG_LENGTH);
+  return trimmed && SLUG_PATTERN.test(trimmed) ? trimmed : undefined;
 };
 
 const normalizeNullableMs = (value: number | null | undefined) => {
   if (value === null || value === undefined) return null;
   if (!Number.isFinite(value)) return null;
   return Math.max(0, Math.round(value));
+};
+
+const normalizeNullableMsInput = (value: unknown) => (
+  typeof value === "number" || value === null ? normalizeNullableMs(value) : null
+);
+
+const normalizeOptionalHttpUrl = (value: string | undefined) => {
+  const trimmed = normalizeOptionalString(value, MAX_URL_LENGTH);
+  if (!trimmed) return undefined;
+  try {
+    const url = new URL(trimmed);
+    return url.protocol === "http:" || url.protocol === "https:" ? url.href : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+const normalizeAudioRef = (value: LyricTimingAudioRef | UnknownRecord | undefined) => {
+  if (!value) return undefined;
+  const record = value as UnknownRecord;
+  const fileName = typeof record.fileName === "string"
+    ? normalizeOptionalString(record.fileName, MAX_FILE_NAME_LENGTH)
+    : undefined;
+  const durationMs = normalizeNullableMsInput(record.durationMs);
+  if (!fileName && durationMs === null) return undefined;
+  return { ...(fileName ? { fileName } : {}), durationMs };
+};
+
+const normalizeIntegerField = (value: unknown) => (
+  typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : undefined
+);
+
+const normalizeSongleRef = (value: LyricTimingSongleRef | UnknownRecord | null | undefined) => {
+  if (!value) return null;
+  const record = value as UnknownRecord;
+  const id = normalizeIntegerField(record.id);
+  const artistId = normalizeIntegerField(record.artistId);
+  const url = typeof record.url === "string" ? normalizeOptionalHttpUrl(record.url) : undefined;
+  const permalink = typeof record.permalink === "string" ? normalizeOptionalHttpUrl(record.permalink) : undefined;
+  const code = typeof record.code === "string" ? normalizeOptionalString(record.code, MAX_SONGLE_CODE_LENGTH) : undefined;
+  const createdAt = typeof record.createdAt === "string" ? normalizeOptionalString(record.createdAt) : undefined;
+  const updatedAt = typeof record.updatedAt === "string" ? normalizeOptionalString(record.updatedAt) : undefined;
+  const recognizedAt = typeof record.recognizedAt === "string" ? normalizeOptionalString(record.recognizedAt) : undefined;
+  const result: LyricTimingSongleRef = {
+    ...(id !== undefined ? { id } : {}),
+    ...(artistId !== undefined ? { artistId } : {}),
+    ...(url ? { url } : {}),
+    ...(permalink ? { permalink } : {}),
+    ...(code ? { code } : {}),
+    ...(createdAt ? { createdAt } : {}),
+    ...(updatedAt ? { updatedAt } : {}),
+    ...(recognizedAt ? { recognizedAt } : {})
+  };
+  return Object.keys(result).length ? result : null;
+};
+
+const getStringField = (record: UnknownRecord, key: string, maxLength = MAX_METADATA_LENGTH) => (
+  typeof record[key] === "string" ? normalizeOptionalString(record[key], maxLength) : undefined
+);
+
+const normalizeTimestamp = (value: unknown) => {
+  if (typeof value !== "string") return undefined;
+  const time = Date.parse(value);
+  return Number.isFinite(time) ? new Date(time).toISOString() : undefined;
+};
+
+const sourceTextFromImportedProject = (record: UnknownRecord): ImportedProjectSourceResult => {
+  if (Array.isArray(record.lines)) {
+    if (record.lines.length > MAX_IMPORTED_PROJECT_LINES) return { ok: false, reason: "source-too-large" };
+    const sourceText = record.lines.map((line) => (
+      isRecord(line) && typeof line.rawText === "string" ? line.rawText : ""
+    )).join("\n");
+    return { ok: true, sourceText };
+  }
+
+  if (Array.isArray(record.phrases)) {
+    if (record.phrases.length > MAX_IMPORTED_PROJECT_PHRASES) return { ok: false, reason: "too-many-phrases" };
+    const sourceText = record.phrases.map((phrase) => (
+      isRecord(phrase) && typeof phrase.text === "string" ? phrase.text : ""
+    )).join("\n");
+    return { ok: true, sourceText };
+  }
+
+  return { ok: false, reason: "missing-source" };
+};
+
+const overlayImportedPhraseTiming = (
+  phrase: LyricTimingPhrase,
+  importedPhrase: unknown
+): LyricTimingPhrase => {
+  if (!isRecord(importedPhrase)) return phrase;
+  const startTimeMs = normalizeNullableMsInput(importedPhrase.startTimeMs);
+  const importedEndTimeMs = normalizeNullableMsInput(importedPhrase.endTimeMs);
+  const endTimeMs = startTimeMs !== null && importedEndTimeMs !== null && importedEndTimeMs <= startTimeMs
+    ? null
+    : importedEndTimeMs;
+  return { ...phrase, startTimeMs, endTimeMs, words: [] };
 };
 
 const unescapeTextAliveHash = (trimmedLine: string) => (
@@ -126,18 +262,18 @@ export const createLyricTimingProject = (
   return {
     schema: LYRIC_TIMING_PROJECT_SCHEMA,
     slug: normalizeSlug(options.slug),
-    title: options.title?.trim() ?? "",
-    artist: options.artist?.trim() ?? "",
+    title: normalizeOptionalString(options.title) ?? "",
+    artist: normalizeOptionalString(options.artist) ?? "",
     durationMs: normalizeNullableMs(options.durationMs),
-    songUrl: normalizeOptionalString(options.songUrl),
-    songleUrl: normalizeOptionalString(options.songleUrl),
-    textAliveUrl: normalizeOptionalString(options.textAliveUrl),
-    songle: options.songle ?? null,
-    audioRef: options.audioRef,
+    songUrl: normalizeOptionalHttpUrl(options.songUrl),
+    songleUrl: normalizeOptionalHttpUrl(options.songleUrl),
+    textAliveUrl: normalizeOptionalHttpUrl(options.textAliveUrl),
+    songle: normalizeSongleRef(options.songle),
+    audioRef: normalizeAudioRef(options.audioRef),
     parseMode,
     createdAt: now,
     updatedAt: now,
-    notes: options.notes ?? "",
+    notes: options.notes?.slice(0, MAX_NOTES_LENGTH) ?? "",
     lines: parsed.lines,
     phrases: parsed.phrases
   };
@@ -154,12 +290,58 @@ export const updateLyricTimingProjectMetadata = (
   ...project,
   ...updates,
   slug: "slug" in updates ? normalizeSlug(updates.slug) : project.slug,
-  title: updates.title?.trim() ?? project.title,
-  artist: updates.artist?.trim() ?? project.artist,
+  title: updates.title !== undefined ? (normalizeOptionalString(updates.title) ?? "") : project.title,
+  artist: updates.artist !== undefined ? (normalizeOptionalString(updates.artist) ?? "") : project.artist,
   durationMs: "durationMs" in updates ? normalizeNullableMs(updates.durationMs) : project.durationMs,
-  songUrl: "songUrl" in updates ? normalizeOptionalString(updates.songUrl) : project.songUrl,
-  songleUrl: "songleUrl" in updates ? normalizeOptionalString(updates.songleUrl) : project.songleUrl,
-  textAliveUrl: "textAliveUrl" in updates ? normalizeOptionalString(updates.textAliveUrl) : project.textAliveUrl,
-  songle: "songle" in updates ? updates.songle ?? null : project.songle,
+  songUrl: "songUrl" in updates ? normalizeOptionalHttpUrl(updates.songUrl) : project.songUrl,
+  songleUrl: "songleUrl" in updates ? normalizeOptionalHttpUrl(updates.songleUrl) : project.songleUrl,
+  textAliveUrl: "textAliveUrl" in updates ? normalizeOptionalHttpUrl(updates.textAliveUrl) : project.textAliveUrl,
+  songle: "songle" in updates ? normalizeSongleRef(updates.songle) : project.songle,
+  audioRef: "audioRef" in updates ? normalizeAudioRef(updates.audioRef) : project.audioRef,
+  notes: updates.notes !== undefined ? updates.notes.slice(0, MAX_NOTES_LENGTH) : project.notes,
   updatedAt: now.toISOString()
 });
+
+export const normalizeLyricTimingProjectInput = (
+  value: unknown
+): NormalizeLyricTimingProjectInputResult => {
+  if (!isRecord(value)) return { ok: false, reason: "not-object" };
+  if (value.schema !== LYRIC_TIMING_PROJECT_SCHEMA) return { ok: false, reason: "unsupported-schema" };
+
+  const source = sourceTextFromImportedProject(value);
+  if (!source.ok) return source;
+  if (source.sourceText.length > MAX_IMPORTED_PROJECT_SOURCE_LENGTH) {
+    return { ok: false, reason: "source-too-large" };
+  }
+
+  const parseMode: LyricTextParseMode = value.parseMode === "literal" ? "literal" : "textalive";
+  const project = createLyricTimingProject({
+    slug: getStringField(value, "slug", MAX_SLUG_LENGTH),
+    title: getStringField(value, "title"),
+    artist: getStringField(value, "artist"),
+    durationMs: normalizeNullableMsInput(value.durationMs),
+    songUrl: getStringField(value, "songUrl", MAX_URL_LENGTH),
+    songleUrl: getStringField(value, "songleUrl", MAX_URL_LENGTH),
+    textAliveUrl: getStringField(value, "textAliveUrl", MAX_URL_LENGTH),
+    songle: isRecord(value.songle) ? normalizeSongleRef(value.songle as LyricTimingSongleRef) : null,
+    audioRef: isRecord(value.audioRef) ? normalizeAudioRef(value.audioRef as LyricTimingAudioRef) : undefined,
+    parseMode,
+    lyricText: source.sourceText,
+    notes: getStringField(value, "notes", MAX_NOTES_LENGTH)
+  });
+
+  if (project.phrases.length > MAX_IMPORTED_PROJECT_PHRASES) {
+    return { ok: false, reason: "too-many-phrases" };
+  }
+
+  const importedPhrases = Array.isArray(value.phrases) ? value.phrases : [];
+  return {
+    ok: true,
+    project: {
+      ...project,
+      createdAt: normalizeTimestamp(value.createdAt) ?? project.createdAt,
+      updatedAt: normalizeTimestamp(value.updatedAt) ?? project.updatedAt,
+      phrases: project.phrases.map((phrase, index) => overlayImportedPhraseTiming(phrase, importedPhrases[index]))
+    }
+  };
+};

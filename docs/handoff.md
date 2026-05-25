@@ -4,6 +4,7 @@ This file is a short-lived handoff note for opening a fresh Codex thread on this
 
 For cross-thread coordination, see `docs/codex-collaboration.md`.
 For a copy/paste starter prompt, see `docs/thread-handoff-template.md`.
+For the current security review record, see `docs/security-review-2026-05-25.md`.
 
 ## Repository
 

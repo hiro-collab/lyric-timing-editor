@@ -24,6 +24,7 @@ export type {
 } from "./lyricTimingProject";
 export {
   createLyricTimingProject,
+  normalizeLyricTimingProjectInput,
   normalizeSlug,
   parseLyricText,
   updateLyricTimingProjectMetadata

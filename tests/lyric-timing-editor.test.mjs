@@ -125,3 +125,53 @@ test("WebVTT and LRC exports use completed phrase timings", async () => {
   assert.match(lrc.fileText, /\[length:00:10\.00\]/);
   assert.match(lrc.fileText, /\[00:01\.00\]first & line/);
 });
+
+test("Project JSON import normalizes untrusted fields before use", async () => {
+  const { project } = await loadLyricsModules();
+  const original = project.createLyricTimingProject({
+    slug: "safe-song",
+    title: "Demo",
+    artist: "Tester",
+    durationMs: 10000,
+    songUrl: "https://example.com/watch",
+    lyricText: "first\nsecond"
+  });
+  const imported = {
+    ...original,
+    slug: "../../bad",
+    songUrl: "javascript:alert(1)",
+    audioRef: { fileName: "track.mp3", durationMs: "9999" },
+    songle: { id: "123", url: "javascript:alert(1)" },
+    phrases: original.phrases.map((phrase, index) => ({
+      ...phrase,
+      startTimeMs: index === 0 ? "<img src=x onerror=alert(1)>" : 4000,
+      endTimeMs: index === 0 ? 3000 : 2000
+    }))
+  };
+
+  const result = project.normalizeLyricTimingProjectInput(imported);
+
+  assert.equal(result.ok, true);
+  assert.equal(result.project.slug, undefined);
+  assert.equal(result.project.songUrl, undefined);
+  assert.deepEqual(result.project.songle, null);
+  assert.deepEqual(result.project.audioRef, { fileName: "track.mp3", durationMs: null });
+  assert.equal(result.project.phrases[0].startTimeMs, null);
+  assert.equal(result.project.phrases[0].endTimeMs, 3000);
+  assert.equal(result.project.phrases[1].startTimeMs, 4000);
+  assert.equal(result.project.phrases[1].endTimeMs, null);
+});
+
+test("Project JSON import rejects unsupported and oversized inputs", async () => {
+  const { project } = await loadLyricsModules();
+
+  assert.deepEqual(
+    project.normalizeLyricTimingProjectInput({ schema: "other", lines: [] }),
+    { ok: false, reason: "unsupported-schema" }
+  );
+  const oversized = {
+    schema: "lyric-timing-editor.project.v1",
+    lines: [{ rawText: "x".repeat(project.MAX_IMPORTED_PROJECT_SOURCE_LENGTH + 1) }]
+  };
+  assert.deepEqual(project.normalizeLyricTimingProjectInput(oversized), { ok: false, reason: "source-too-large" });
+});

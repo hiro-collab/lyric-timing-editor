@@ -66,7 +66,8 @@ GitHub Pages distribution should be treated as a static local-browser tool:
 - No analytics unless a future privacy review explicitly approves them.
 - No sample audio, real lyric text, or real-song lyric-included timing data in the public repository.
 - Synthetic demo text is acceptable when it is written for this editor and does not copy a real song.
+- The app includes a meta Content Security Policy for the static page. Hosts that support response headers should also set equivalent or stricter security headers.
 
 ## Local Data
 
-Autosave uses browser IndexedDB and may contain lyric text. The app should expose a visible control to clear this browser's local draft data, and Help/Privacy text should explain what is stored.
+Autosave uses browser IndexedDB and may contain lyric text. The app exposes a visible Clear Draft control to delete this browser's local draft data, and Help/Privacy text explains what is stored.

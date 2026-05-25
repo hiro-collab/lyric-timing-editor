@@ -1,0 +1,76 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import ts from "typescript";
+
+const sourceRoot = new URL("../src/lyrics/", import.meta.url);
+
+const transpile = async (fileName) => {
+  const source = await readFile(new URL(fileName, sourceRoot), "utf8");
+  return ts.transpileModule(source, {
+    compilerOptions: {
+      module: ts.ModuleKind.ES2022,
+      target: ts.ScriptTarget.ES2022
+    }
+  }).outputText
+    .replaceAll('from "./lyricTimingTypes"', 'from "./lyricTimingTypes.js"')
+    .replaceAll('from "./lyricTimingProject"', 'from "./lyricTimingProject.js"');
+};
+
+const loadLyricsModules = async () => {
+  const tempDir = await mkdtemp(join(tmpdir(), "lyric-timing-test-"));
+  await writeFile(join(tempDir, "package.json"), JSON.stringify({ type: "module" }));
+  for (const fileName of ["lyricTimingTypes.ts", "lyricTimingProject.ts", "lyricTimingExport.ts"]) {
+    await writeFile(join(tempDir, fileName.replace(".ts", ".js")), await transpile(fileName));
+  }
+  return {
+    project: await import(new URL(`file:///${join(tempDir, "lyricTimingProject.js").replaceAll("\\", "/")}`)),
+    exportModule: await import(new URL(`file:///${join(tempDir, "lyricTimingExport.js").replaceAll("\\", "/")}`))
+  };
+};
+
+test("TextAlive parse mode preserves comments, section breaks, and escaped hash lyrics", async () => {
+  const { project } = await loadLyricsModules();
+  const parsed = project.parseLyricText("# intro\n\\#hash lyric\n\n青い空へ行く", { mode: "textalive" });
+
+  assert.equal(parsed.phrases.length, 2);
+  assert.equal(parsed.lines[0].kind, "comment");
+  assert.equal(parsed.lines[1].kind, "phrase");
+  assert.equal(parsed.lines[1].text, "#hash lyric");
+  assert.equal(parsed.lines[2].kind, "sectionBreak");
+  assert.equal(parsed.phrases[0].id, "phrase-0001");
+  assert.equal(parsed.phrases[0].sourceLine, 2);
+});
+
+test("Literal parse mode treats leading hash as lyric text", async () => {
+  const { project } = await loadLyricsModules();
+  const parsed = project.parseLyricText("# not a comment", { mode: "literal" });
+
+  assert.equal(parsed.phrases.length, 1);
+  assert.equal(parsed.lines[0].kind, "phrase");
+  assert.equal(parsed.phrases[0].text, "# not a comment");
+});
+
+test("v2 export blocks incomplete phrases and omits text for timing-only export", async () => {
+  const { project, exportModule } = await loadLyricsModules();
+  const workbenchProject = project.createLyricTimingProject({
+    title: "Demo",
+    artist: "Tester",
+    durationMs: 10000,
+    lyricText: "first\nsecond"
+  });
+
+  assert.equal(exportModule.makeLyricTimingExport(workbenchProject, { includeLyrics: false }).ok, false);
+
+  workbenchProject.phrases[0].startTimeMs = 1000;
+  workbenchProject.phrases[1].startTimeMs = 4000;
+  const result = exportModule.makeLyricTimingExport(workbenchProject, { includeLyrics: false, generatedAt: new Date(0) });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.exportData.schema, "music-effect.lyrics-timing.v2");
+  assert.equal(result.exportData.timeUnit, "ms");
+  assert.equal(result.exportData.phrases[0].endTimeMs, 4000);
+  assert.equal("text" in result.exportData.phrases[0], false);
+});

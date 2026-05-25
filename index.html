@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f4fbf7" />
+    <title>Lyric Timing Editor</title>
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true">LT</span>
+          <div>
+            <h1>Lyric Timing Editor</h1>
+            <p data-i18n="appSubtitle">Local lyric timing editor</p>
+          </div>
+        </div>
+
+        <nav class="topbar-actions" aria-label="Editor actions">
+          <label class="file-action">
+            <span class="control-icon audio-icon" aria-hidden="true"></span>
+            <span data-i18n="loadAudio">Load Audio</span>
+            <input id="audio-input" type="file" accept="audio/*" />
+          </label>
+          <label class="file-action">
+            <span class="control-icon document-icon" aria-hidden="true"></span>
+            <span data-i18n="loadLyrics">Load Lyrics</span>
+            <input id="lyrics-input" type="file" accept="text/plain,.txt,.lrc" />
+          </label>
+          <details class="menu-panel" id="source-menu">
+            <summary>
+              <span class="control-icon source-icon" aria-hidden="true"></span>
+              <span data-i18n="moreSource">Source Text</span>
+              <span class="dropdown-caret" aria-hidden="true"></span>
+            </summary>
+            <div class="menu-popover source-popover">
+              <label>
+                <span data-i18n="parseMode">Parse mode</span>
+                <select id="parse-mode">
+                  <option value="textalive" data-i18n="parseTextAlive">TextAlive compatible</option>
+                  <option value="literal" data-i18n="parseLiteral">Literal</option>
+                </select>
+              </label>
+              <label>
+                <span data-i18n="pasteLyrics">Source text</span>
+                <textarea id="lyrics-text" class="lyrics-text" spellcheck="false"></textarea>
+              </label>
+              <button id="parse-lyrics" type="button" class="solid-action" data-i18n="parseLyrics">Apply source text</button>
+            </div>
+          </details>
+          <button id="project-details" type="button">
+            <span class="control-icon details-icon" aria-hidden="true"></span>
+            <span data-i18n="projectDetails">Project Details</span>
+          </button>
+          <label class="file-action">
+            <span class="control-icon project-load-icon" aria-hidden="true"></span>
+            <span data-i18n="loadProject">Load Project</span>
+            <input id="project-input" type="file" accept="application/json,.json" />
+          </label>
+          <button id="save-project" type="button">
+            <span class="control-icon save-icon" aria-hidden="true"></span>
+            <span data-i18n="saveProject">Save Project</span>
+          </button>
+          <details class="menu-panel" id="export-menu">
+            <summary>
+              <span class="control-icon export-icon" aria-hidden="true"></span>
+              <span data-i18n="exportMenu">Export</span>
+              <span class="dropdown-caret" aria-hidden="true"></span>
+            </summary>
+            <div class="menu-popover export-popover">
+              <button id="export-timing-only" type="button" data-i18n="exportTimingOnly">Timing only</button>
+              <button id="export-with-lyrics" type="button" data-i18n="exportWithLyrics">With lyrics</button>
+            </div>
+          </details>
+          <button id="language-toggle" type="button" class="ghost-action" aria-label="Language">JA / EN</button>
+          <button id="help-open" type="button" class="ghost-action" data-i18n="help">Help</button>
+        </nav>
+      </header>
+
+      <section id="draft-banner" class="draft-banner" hidden>
+        <div>
+          <strong data-i18n="draftAvailableTitle">Unsaved local draft found</strong>
+          <p id="draft-banner-text">A local autosave draft is available.</p>
+        </div>
+        <div class="draft-actions">
+          <button id="restore-draft" type="button" class="solid-action" data-i18n="restoreDraft">Restore</button>
+          <button id="download-draft" type="button" data-i18n="downloadDraft">Save as Project</button>
+          <button id="discard-draft" type="button" data-i18n="discardDraft">Discard</button>
+        </div>
+      </section>
+
+      <section class="song-ribbon" aria-label="Song information">
+        <div class="song-now">
+          <span class="song-title" id="song-title">Untitled</span>
+          <span class="song-artist" id="song-artist">Unknown artist</span>
+        </div>
+        <dl class="song-meta">
+          <div>
+            <dt data-i18n="audioFile">Audio</dt>
+            <dd id="audio-file-name">not selected</dd>
+          </div>
+          <div>
+            <dt data-i18n="duration">Duration</dt>
+            <dd id="audio-duration">unknown</dd>
+          </div>
+          <div>
+            <dt data-i18n="projectState">Project</dt>
+            <dd id="project-summary">0 phrases</dd>
+          </div>
+          <div>
+            <dt data-i18n="localDraft">Draft</dt>
+            <dd id="autosave-status">not saved</dd>
+          </div>
+        </dl>
+      </section>
+
+      <section class="lyric-stage" aria-label="Lyric timing stage">
+        <div class="phrase-stage">
+          <section class="current-phrase-card" aria-labelledby="current-phrase-heading">
+            <div class="stage-heading">
+              <div>
+                <span class="eyebrow" id="focus-mode-label">Follow Playback</span>
+                <h2 id="current-phrase-heading" data-i18n="currentPhrase">Current Phrase</h2>
+              </div>
+              <button id="follow-playback" type="button" class="compact-action" data-i18n="followPlayback">Follow Playback</button>
+            </div>
+            <p id="current-phrase-text" class="current-phrase-text">Load lyrics to start</p>
+            <div class="phrase-detail-row">
+              <span id="current-phrase-id">phrase --</span>
+              <span id="current-phrase-time">--:--.---</span>
+              <span id="current-phrase-line">line --</span>
+            </div>
+          </section>
+
+          <aside class="next-phrase-card" aria-labelledby="next-phrase-heading">
+            <span class="eyebrow" data-i18n="nextTarget">Next Target</span>
+            <h2 id="next-phrase-heading" data-i18n="nextPhrase">Next Phrase</h2>
+            <p id="next-phrase-text">No next phrase</p>
+            <div class="phrase-detail-row stacked">
+              <span id="next-phrase-id">phrase --</span>
+              <span id="next-phrase-time">--:--.---</span>
+            </div>
+          </aside>
+        </div>
+
+        <div class="transport">
+          <audio id="audio-player" preload="metadata"></audio>
+          <button id="play-toggle" type="button" class="transport-button">
+            <span class="play-icon" aria-hidden="true"></span>
+            <span data-i18n="play">Play</span>
+            <kbd>Space</kbd>
+          </button>
+          <p id="audio-guidance" class="audio-guidance" role="status" aria-live="polite" data-i18n="audioRequiredHint">Load audio to play</p>
+          <div class="time-readout" aria-live="polite">
+            <span id="playback-time">00:00.000</span>
+            <span id="playback-duration">--:--.---</span>
+          </div>
+          <input id="seek-bar" type="range" min="0" max="0" step="1" value="0" aria-label="Playback position" />
+          <div class="stamp-actions">
+            <button id="stamp-current" type="button" class="solid-action">
+              <span data-i18n="stampCurrent">Stamp Current</span>
+              <kbd>A</kbd>
+            </button>
+            <button id="stamp-next" type="button">
+              <span data-i18n="stampNext">Stamp Next</span>
+              <kbd>D</kbd>
+            </button>
+            <button id="undo-action" type="button" class="icon-action" aria-label="Undo">↶</button>
+            <button id="redo-action" type="button" class="icon-action" aria-label="Redo">↷</button>
+          </div>
+        </div>
+
+        <div class="sequence-wrap" aria-label="Sequence overview">
+          <div id="selection-edit-bar" class="selection-edit-bar" hidden>
+            <div class="selection-state">
+              <p id="selection-summary">Selection: 0</p>
+              <p id="sequence-drag-hint" class="sequence-drag-hint" hidden data-i18n="dragFineHint">Hold Shift while dragging to move more finely</p>
+            </div>
+            <div class="selection-actions">
+              <button id="selection-shift-earlier" type="button" class="compact-action" data-i18n="shiftEarlier10">-10 ms</button>
+              <button id="selection-shift-later" type="button" class="compact-action" data-i18n="shiftLater10">+10 ms</button>
+              <button id="selection-even" type="button" class="compact-action" data-i18n="evenSpacing">Even spacing</button>
+              <button id="selection-clear-timing" type="button" class="compact-action" data-i18n="clearSelectionTiming">Set unmarked</button>
+              <button id="selection-clear" type="button" class="compact-action" data-i18n="clearSelection">Clear selection</button>
+            </div>
+          </div>
+          <div id="sequence-bar" class="sequence-bar"></div>
+        </div>
+      </section>
+
+      <section class="work-area">
+        <section class="phrase-table-panel" aria-label="Phrase table">
+          <div class="panel-heading">
+            <div>
+              <h2 data-i18n="phrases">Phrases</h2>
+              <p id="phrase-table-note">0 timed / 0 total</p>
+            </div>
+            <button id="follow-list" type="button" class="compact-action" data-i18n="followList">Follow List</button>
+          </div>
+            <div id="phrase-table" class="phrase-table" tabindex="0"></div>
+        </section>
+
+        <aside class="status-panel" aria-label="Status">
+          <section>
+            <h2 data-i18n="status">Status</h2>
+            <p id="status-message" role="status">Ready</p>
+          </section>
+          <section>
+            <h2 data-i18n="validation">Validation</h2>
+            <p id="validation-message">No validation issues</p>
+          </section>
+        </aside>
+      </section>
+
+      <dialog id="project-details-dialog" class="details-dialog">
+        <form method="dialog">
+          <header>
+            <h2 data-i18n="projectDetails">Project Details</h2>
+            <button type="submit" class="icon-action" aria-label="Close">×</button>
+          </header>
+          <div class="details-grid">
+            <label>
+              <span data-i18n="title">Title</span>
+              <input id="title-input" type="text" autocomplete="off" />
+            </label>
+            <label>
+              <span data-i18n="artist">Artist</span>
+              <input id="artist-input" type="text" autocomplete="off" />
+            </label>
+            <label>
+              <span data-i18n="durationMs">Duration (ms)</span>
+              <input id="duration-input" type="number" min="0" step="1" inputmode="numeric" />
+            </label>
+            <label>
+              <span data-i18n="songUrl">Song URL</span>
+              <input id="song-url-input" type="url" autocomplete="off" />
+            </label>
+            <label>
+              <span data-i18n="songleUrl">Songle URL</span>
+              <input id="songle-url-input" type="url" autocomplete="off" />
+            </label>
+            <label>
+              <span data-i18n="textAliveUrl">TextAlive URL</span>
+              <input id="textalive-url-input" type="url" autocomplete="off" />
+            </label>
+            <label class="full-span">
+              <span data-i18n="notes">Notes</span>
+              <textarea id="notes-input" rows="4"></textarea>
+            </label>
+          </div>
+        </form>
+      </dialog>
+
+      <dialog id="help-dialog" class="details-dialog">
+        <form method="dialog">
+          <header>
+            <h2 data-i18n="helpTitle">Editor Help</h2>
+            <button type="submit" class="icon-action" aria-label="Close">×</button>
+          </header>
+          <div class="help-body">
+            <p data-i18n="helpIntro">Load a local audio file and a UTF-8 lyric text file, then use the current and next phrase controls while playing the song.</p>
+            <p data-i18n="helpRights">Before publishing, distributing, uploading, or committing files that include lyric text, confirm the lyric rights and the destination terms.</p>
+            <p data-i18n="helpAudio">Audio stays in the browser session. The project stores only the file name and optional duration metadata.</p>
+            <section class="shortcut-list">
+              <h3 data-i18n="shortcuts">Shortcuts</h3>
+              <dl>
+                <div><dt>Space</dt><dd data-i18n="shortcutPlay">Play / Pause</dd></div>
+                <div><dt>A</dt><dd data-i18n="shortcutCurrent">Stamp current phrase</dd></div>
+                <div><dt>D</dt><dd data-i18n="shortcutNext">Stamp next phrase</dd></div>
+                <div><dt>Ctrl+Z</dt><dd data-i18n="shortcutUndo">Undo</dd></div>
+                <div><dt>Ctrl+Y</dt><dd data-i18n="shortcutRedo">Redo</dd></div>
+                <div><dt>← / →</dt><dd data-i18n="shortcutSelect">Select phrase</dd></div>
+              </dl>
+            </section>
+          </div>
+        </form>
+      </dialog>
+    </main>
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>

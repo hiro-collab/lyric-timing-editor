@@ -1,0 +1,21 @@
+node_modules/
+dist/
+*.local
+.DS_Store
+Thumbs.db
+
+# Local media and lyric working files are intentionally excluded.
+*.mp3
+*.wav
+*.flac
+*.m4a
+*.aac
+*.ogg
+*.lrc
+*.srt
+*.ass
+*.vtt
+
+# Exported work files may contain lyric text. Commit only after rights review.
+*.project.json
+lyrics-timing*.json

@@ -56,10 +56,15 @@ test("Literal parse mode treats leading hash as lyric text", async () => {
 test("v2 export blocks incomplete phrases and omits text for timing-only export", async () => {
   const { project, exportModule } = await loadLyricsModules();
   const workbenchProject = project.createLyricTimingProject({
+    slug: "demo-song",
     title: "Demo",
     artist: "Tester",
     durationMs: 10000,
-    lyricText: "first\nsecond"
+    lyricText: "first\nsecond",
+    songle: {
+      id: 123,
+      url: "https://songle.jp/songs/example"
+    }
   });
 
   assert.equal(exportModule.makeLyricTimingExport(workbenchProject, { includeLyrics: false }).ok, false);
@@ -70,7 +75,53 @@ test("v2 export blocks incomplete phrases and omits text for timing-only export"
 
   assert.equal(result.ok, true);
   assert.equal(result.exportData.schema, "music-effect.lyrics-timing.v2");
+  assert.equal(result.exportData.sourceProjectSchema, "lyric-timing-editor.project.v1");
+  assert.equal(result.exportData.slug, "demo-song");
   assert.equal(result.exportData.timeUnit, "ms");
+  assert.equal(result.exportData.includesLyrics, false);
+  assert.equal(result.exportData.rightsNotice.includes("does not include lyric text"), true);
+  assert.equal(result.exportData.songle.id, 123);
   assert.equal(result.exportData.phrases[0].endTimeMs, 4000);
+  assert.equal(result.exportData.phrases[0].sourceLine, 1);
   assert.equal("text" in result.exportData.phrases[0], false);
+});
+
+test("v2 export includes lyrics and lyric-specific rights notice when requested", async () => {
+  const { project, exportModule } = await loadLyricsModules();
+  const workbenchProject = project.createLyricTimingProject({
+    title: "Demo",
+    artist: "Tester",
+    durationMs: 10000,
+    lyricText: "first"
+  });
+  workbenchProject.phrases[0].startTimeMs = 1000;
+  const result = exportModule.makeLyricTimingExport(workbenchProject, { includeLyrics: true, generatedAt: new Date(0) });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.exportData.includesLyrics, true);
+  assert.equal(result.exportData.rightsNotice.includes("includes lyric text"), true);
+  assert.equal(result.exportData.phrases[0].text, "first");
+});
+
+test("WebVTT and LRC exports use completed phrase timings", async () => {
+  const { project, exportModule } = await loadLyricsModules();
+  const workbenchProject = project.createLyricTimingProject({
+    title: "Demo <Song>",
+    artist: "Tester",
+    durationMs: 10000,
+    lyricText: "first & line\nsecond line"
+  });
+  workbenchProject.phrases[0].startTimeMs = 1000;
+  workbenchProject.phrases[1].startTimeMs = 4000;
+
+  const vtt = exportModule.makeWebVttExport(workbenchProject);
+  assert.equal(vtt.ok, true);
+  assert.match(vtt.fileText, /^WEBVTT/);
+  assert.match(vtt.fileText, /phrase-0001\n00:00:01\.000 --> 00:00:04\.000\nfirst &amp; line/);
+
+  const lrc = exportModule.makeLrcExport(workbenchProject);
+  assert.equal(lrc.ok, true);
+  assert.match(lrc.fileText, /\[ti:Demo <Song>\]/);
+  assert.match(lrc.fileText, /\[length:00:10\.00\]/);
+  assert.match(lrc.fileText, /\[00:01\.00\]first & line/);
 });

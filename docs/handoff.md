@@ -38,8 +38,20 @@ After pushing to GitHub, the repository may still need GitHub Pages configured t
 ## Next Likely Tasks
 
 - Decide license.
-- Add security/privacy notes.
 - Confirm GitHub Pages deployment.
-- Decide whether schema/storage keys should remain compatible with the original Music Effect prototype names or move to new editor-owned names.
 - Add schema documentation and maybe JSON Schema files.
 - Add browser-level regression tests for layout and autosave.
+- Add UI/help/docs synchronization tests for Project Details metadata field descriptions.
+- Implement Project schema/storage rename:
+  - Project JSON: `lyric-timing-editor.project.v1`
+  - Autosave: `lyric-timing-editor.autosave.v1`
+  - Export JSON: keep `music-effect.lyrics-timing.v2`
+- Implement optional `slug` and `songle` metadata in Project and Music Effect v2 export.
+- Implement Music Effect v2, WebVTT, and LRC exports as described in `docs/export-formats.md`.
+- Implement Songle `song.json` import and explicit Songle metadata lookup with URL/file validation.
+- Implement unmarked phrase autofill from the Validation panel.
+- Add local draft deletion UI and privacy/help text.
+
+See `docs/policy-questions.md` for the current decision checklist.
+See `docs/export-formats.md` for the current export contract.
+See `docs/legal-and-safety.md` for rights and local-data safety notes.

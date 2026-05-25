@@ -1,9 +1,12 @@
 import {
   LYRIC_TIMING_PROJECT_SCHEMA,
   createLyricTimingProject,
+  makeLrcExport,
   makeLyricTimingExport,
+  makeWebVttExport,
   updateLyricTimingProjectMetadata,
   validateLyricTimingProject,
+  type LyricTimingIssue,
   type LyricTextParseMode,
   type LyricTimingPhrase,
   type LyricTimingProject
@@ -27,7 +30,7 @@ type Snapshot = {
 };
 type AutoSaveDraft = Snapshot & {
   id: string;
-  schema: "music-effect.lyric-timing-workbench.autosave.v1";
+  schema: "lyric-timing-editor.autosave.v1";
   savedAt: string;
   sourceText: string;
 };
@@ -58,16 +61,24 @@ type SequenceDragState =
       moved: boolean;
     };
 
-const LANGUAGE_STORAGE_KEY = "music-effect:lyric-timing-workbench:language";
-const AUTOSAVE_DB_NAME = "music-effect-lyric-timing-workbench";
+const LANGUAGE_STORAGE_KEY = "lyric-timing-editor:language";
+const AUTOSAVE_DB_NAME = "lyric-timing-editor";
 const AUTOSAVE_STORE_NAME = "drafts";
 const AUTOSAVE_RECORD_ID = "latest";
-const AUTOSAVE_SCHEMA = "music-effect.lyric-timing-workbench.autosave.v1";
+const AUTOSAVE_SCHEMA = "lyric-timing-editor.autosave.v1";
 const AUTOSAVE_DELAY_MS = 600;
 const MIN_TIMING_GAP_MS = 1;
 const TIMING_NUDGE_MS = 10;
 const DRAG_START_THRESHOLD_PX = 3;
 const FINE_DRAG_SCALE = 0.16;
+const SAFE_DEMO_LYRIC_TEXT = [
+  "# synthetic demo",
+  "\\#hash marker stays lyric text",
+  "",
+  "架空の光が拍を数える",
+  "Synthetic cue line one",
+  "Synthetic cue line two"
+].join("\n");
 
 const i18n: Record<Language, Record<string, string>> = {
   ja: {
@@ -79,13 +90,21 @@ const i18n: Record<Language, Record<string, string>> = {
     parseTextAlive: "TextAlive互換",
     parseLiteral: "そのまま",
     pasteLyrics: "元テキスト",
+    loadSafeDemo: "安全なデモ文",
     parseLyrics: "元テキストを反映",
     projectDetails: "プロジェクト詳細",
     loadProject: "Project読込",
     saveProject: "Project保存",
     exportMenu: "Export",
+    exportMusicEffect: "Music Effect v2",
     exportTimingOnly: "Timingのみ",
+    exportTimingOnlyHint: "公開repo向け推奨。全フレーズの時刻が必要",
     exportWithLyrics: "歌詞込み",
+    exportWithLyricsHint: "歌詞権利確認が必要",
+    exportGeneralFormats: "汎用形式",
+    exportWebVtt: "WebVTT",
+    exportLrc: "LRC",
+    exportLyricsRequiredHint: "歌詞権利確認が必要",
     help: "Help",
     audioFile: "音源",
     duration: "長さ",
@@ -133,11 +152,20 @@ const i18n: Record<Language, Record<string, string>> = {
     shortcutSelect: "フレーズ選択",
     title: "曲名",
     artist: "アーティスト",
+    slugFileId: "Slug / File ID",
     durationMs: "長さ (ms)",
     songUrl: "曲URL",
     songleUrl: "Songle URL",
     textAliveUrl: "TextAlive URL",
     notes: "メモ",
+    titleHelp: "表示用の曲名です。Export JSONにも保存されます。",
+    artistHelp: "表示用のアーティスト名です。Export JSONにも保存されます。",
+    slugHelp: "ファイル名や連携先の曲IDに使う英数字IDです。手入力できます。",
+    durationHelp: "曲の長さを整数ミリ秒で保存します。",
+    songUrlHelp: "元動画や配信元のURLです。",
+    songleUrlHelp: "Songle登録ページのURLです。metadata取得や照合に使います。",
+    textAliveUrlHelp: "TextAlive関連ページがある場合の任意URLです。",
+    notesHelp: "作業メモです。Project JSONだけに保存されます。",
     helpTitle: "Editor Help",
     helpIntro: "ローカル音源とUTF-8の歌詞テキストを読み込み、曲を再生しながら現在/次のフレーズを打刻します。",
     helpRights: "歌詞本文を含むファイルを公開、配布、アップロード、GitHubへコミットする前に、歌詞の権利と配布先の利用条件を確認してください。",
@@ -162,6 +190,7 @@ const i18n: Record<Language, Record<string, string>> = {
     ready: "Ready",
     noValidationIssues: "検証エラーはありません",
     lyricsParsed: "歌詞を {count} フレーズとして読み込みました",
+    safeDemoLoaded: "権利確認不要のデモ文を {count} フレーズとして読み込みました",
     audioUpdated: "音源参照を更新しました。音源本体は保存しません",
     metadataUpdated: "プロジェクト詳細を更新しました",
     projectDownloaded: "Project JSONをダウンロードしました",
@@ -173,6 +202,8 @@ const i18n: Record<Language, Record<string, string>> = {
     unsupportedProject: "対応していないProject schemaです",
     exportedWithLyrics: "歌詞込みJSONを書き出しました",
     exportedTimingOnly: "TimingのみJSONを書き出しました",
+    exportedWebVtt: "WebVTTを書き出しました",
+    exportedLrc: "LRCを書き出しました",
     loadAudioFirst: "再生には音源ファイルを読み込んでください。Project内の音源名だけでは再生できません",
     audioPlaybackFailed: "再生できませんでした: {reason}",
     selectionEmpty: "フレーズが選択されていません",
@@ -182,12 +213,14 @@ const i18n: Record<Language, Record<string, string>> = {
     selectionMoved: "{count} 件の時刻を {offset} ms 移動しました",
     selectionMoveBlocked: "歌詞順を保つため、これ以上移動できません",
     spacingTooSmall: "アンカー間隔が狭すぎるため均一配置できません",
+    evenSpacingNeedsDuration: "未打刻を均一配置するには、音源を読み込むか、Project Detailsで曲の長さ(ms)を入力してください。Ctrl-Zで元に戻せます。",
     selectionEvened: "{count} 件を均一配置しました",
     selectionTimingCleared: "{count} 件を未打刻に戻しました",
     orderLockNoSpace: "前後の時刻が近すぎるため、このフレーズを打刻できません",
     projectOrderViolationConfirm: "読み込んだProjectには、歌詞順に時刻が進んでいない箇所があります。同じ時刻の連続も含まれます。このEditorでは、各歌詞の時刻が前の歌詞より少なくとも1ms後になる前提で編集します。問題のある時刻だけ未打刻に戻して読み込みますか？",
     projectLoadCanceled: "Projectの読み込みを中止しました。JSONファイルの時刻を手動修正してから読み込んでください",
     projectLoadedWithTimingFixes: "Projectを読み込み、問題のある {count} 件の時刻を未打刻に戻しました",
+    replaceSourceConfirm: "現在の元テキストや打刻をデモ文で置き換えます。続けますか？",
     reparseLosesTimingConfirm: "解析モードを変更して元テキストを再解析すると、現在の打刻はリセットされます。続けますか？",
     parseModeKept: "解析モードの変更を取り消しました",
     noCurrentPhrase: "打刻する現在フレーズがありません",
@@ -201,6 +234,8 @@ const i18n: Record<Language, Record<string, string>> = {
     redoEmpty: "やり直せる操作がありません",
     languageChanged: "表示言語を切り替えました",
     rightsConfirm: "この出力には歌詞本文が含まれる場合があります。公開・配布・アップロード・コミット前に権利と配布先の条件を確認してください。続行しますか?",
+    validationExportMissingTiming: "Project保存は可能です。Exportには全フレーズの時刻が必要です。未打刻: {count}件。",
+    exportBlockedMissingTiming: "Exportには全フレーズのstartTimeMsが必要です。未打刻が{count}件あります。選択バーの「未打刻も含めて均一配置」で仮配置するか、打刻後に再度Exportしてください。途中作業はProject保存で保存できます。",
     exportMenuClosed: "Exportメニューを閉じました"
   },
   en: {
@@ -212,13 +247,21 @@ const i18n: Record<Language, Record<string, string>> = {
     parseTextAlive: "TextAlive compatible",
     parseLiteral: "Literal",
     pasteLyrics: "Source text",
+    loadSafeDemo: "Safe demo text",
     parseLyrics: "Apply source text",
     projectDetails: "Project Details",
     loadProject: "Load Project",
     saveProject: "Save Project",
     exportMenu: "Export",
+    exportMusicEffect: "Music Effect v2",
     exportTimingOnly: "Timing only",
+    exportTimingOnlyHint: "Recommended for public repos; all phrase timings required",
     exportWithLyrics: "With lyrics",
+    exportWithLyricsHint: "Requires lyric rights confirmation",
+    exportGeneralFormats: "General formats",
+    exportWebVtt: "WebVTT",
+    exportLrc: "LRC",
+    exportLyricsRequiredHint: "Requires lyric rights confirmation",
     help: "Help",
     audioFile: "Audio",
     duration: "Duration",
@@ -266,11 +309,20 @@ const i18n: Record<Language, Record<string, string>> = {
     shortcutSelect: "Select phrase",
     title: "Title",
     artist: "Artist",
+    slugFileId: "Slug / File ID",
     durationMs: "Duration (ms)",
     songUrl: "Song URL",
     songleUrl: "Songle URL",
     textAliveUrl: "TextAlive URL",
     notes: "Notes",
+    titleHelp: "Display song title. Saved into exported JSON.",
+    artistHelp: "Display artist name. Saved into exported JSON.",
+    slugHelp: "Editable ID used for file names and downstream song matching.",
+    durationHelp: "Song duration in integer milliseconds.",
+    songUrlHelp: "Original video or source URL.",
+    songleUrlHelp: "Songle registration URL for metadata lookup and matching.",
+    textAliveUrlHelp: "Optional TextAlive reference URL.",
+    notesHelp: "Working notes saved only in Project JSON.",
     helpTitle: "Editor Help",
     helpIntro: "Load a local audio file and a UTF-8 lyric text file, then stamp the current or next phrase while playing the song.",
     helpRights: "Before publishing, distributing, uploading, or committing files that include lyric text, confirm the lyric rights and the destination terms.",
@@ -295,6 +347,7 @@ const i18n: Record<Language, Record<string, string>> = {
     ready: "Ready",
     noValidationIssues: "No validation issues",
     lyricsParsed: "Loaded {count} lyric phrases",
+    safeDemoLoaded: "Loaded {count} rights-safe demo phrases",
     audioUpdated: "Audio reference updated; file content was not stored",
     metadataUpdated: "Project metadata updated",
     projectDownloaded: "Project JSON downloaded",
@@ -306,6 +359,8 @@ const i18n: Record<Language, Record<string, string>> = {
     unsupportedProject: "Unsupported project schema",
     exportedWithLyrics: "Exported with lyrics",
     exportedTimingOnly: "Exported timing only",
+    exportedWebVtt: "Exported WebVTT",
+    exportedLrc: "Exported LRC",
     loadAudioFirst: "Load the audio file before playback. A project can store the audio name, but not the audio itself",
     audioPlaybackFailed: "Could not start playback: {reason}",
     selectionEmpty: "No phrases are selected",
@@ -315,12 +370,14 @@ const i18n: Record<Language, Record<string, string>> = {
     selectionMoved: "Shifted {count} timings by {offset} ms",
     selectionMoveBlocked: "Cannot move farther while preserving lyric order",
     spacingTooSmall: "The anchor range is too small for even spacing",
+    evenSpacingNeedsDuration: "Load audio or enter Duration (ms) in Project Details before evenly placing unmarked phrases. You can undo with Ctrl-Z.",
     selectionEvened: "Evenly placed {count} phrases",
     selectionTimingCleared: "Set {count} phrases back to unmarked",
     orderLockNoSpace: "This phrase cannot be stamped because neighboring timings are too close",
     projectOrderViolationConfirm: "The loaded project has timings that do not advance in lyric order, including repeated identical times. This editor edits timings with each lyric at least 1 ms after the previous lyric. Set only the problematic timings back to unmarked and load it?",
     projectLoadCanceled: "Project load canceled. Edit the timing values in the JSON file before loading it again",
     projectLoadedWithTimingFixes: "Project loaded and {count} problematic timings were set back to unmarked",
+    replaceSourceConfirm: "Replace the current source text and any timing with the demo text?",
     reparseLosesTimingConfirm: "Changing parse mode and reparsing the source text resets existing timings. Continue?",
     parseModeKept: "Parse mode change was canceled",
     noCurrentPhrase: "No current phrase to stamp",
@@ -334,6 +391,8 @@ const i18n: Record<Language, Record<string, string>> = {
     redoEmpty: "Nothing to redo",
     languageChanged: "Language switched",
     rightsConfirm: "This file may include lyric text. Confirm rights and destination terms before publishing, distributing, uploading, or committing it. Continue?",
+    validationExportMissingTiming: "Project save is available. Export requires timings for every phrase. Unmarked: {count}.",
+    exportBlockedMissingTiming: "Export requires startTimeMs for every phrase. {count} phrases are unmarked. Use Even with unmarked in the selection bar, or stamp timings before exporting again. Save incomplete work with Project Save.",
     exportMenuClosed: "Export menu closed"
   }
 };
@@ -347,6 +406,7 @@ const byId = <T extends HTMLElement>(id: string) => {
 const elements = {
   title: byId<HTMLInputElement>("title-input"),
   artist: byId<HTMLInputElement>("artist-input"),
+  slug: byId<HTMLInputElement>("slug-input"),
   duration: byId<HTMLInputElement>("duration-input"),
   songUrl: byId<HTMLInputElement>("song-url-input"),
   songleUrl: byId<HTMLInputElement>("songle-url-input"),
@@ -362,10 +422,13 @@ const elements = {
   saveProject: byId<HTMLButtonElement>("save-project"),
   lyricsInput: byId<HTMLInputElement>("lyrics-input"),
   parseMode: byId<HTMLSelectElement>("parse-mode"),
+  loadSafeDemo: byId<HTMLButtonElement>("load-safe-demo"),
   parseLyrics: byId<HTMLButtonElement>("parse-lyrics"),
   lyricsText: byId<HTMLTextAreaElement>("lyrics-text"),
   exportWithLyrics: byId<HTMLButtonElement>("export-with-lyrics"),
   exportTimingOnly: byId<HTMLButtonElement>("export-timing-only"),
+  exportWebVtt: byId<HTMLButtonElement>("export-webvtt"),
+  exportLrc: byId<HTMLButtonElement>("export-lrc"),
   exportMenu: byId<HTMLDetailsElement>("export-menu"),
   languageToggle: byId<HTMLButtonElement>("language-toggle"),
   helpOpen: byId<HTMLButtonElement>("help-open"),
@@ -597,6 +660,7 @@ const parseDurationInput = () => {
 };
 
 const currentMetadata = () => ({
+  slug: elements.slug.value,
   title: elements.title.value,
   artist: elements.artist.value,
   durationMs: parseDurationInput(),
@@ -612,6 +676,7 @@ const setInputValueUnlessFocused = (input: HTMLInputElement | HTMLTextAreaElemen
 };
 
 const syncFieldsFromProject = () => {
+  setInputValueUnlessFocused(elements.slug, project.slug ?? "");
   setInputValueUnlessFocused(elements.title, project.title);
   setInputValueUnlessFocused(elements.artist, project.artist);
   setInputValueUnlessFocused(elements.duration, project.durationMs === null ? "" : String(project.durationMs));
@@ -868,6 +933,10 @@ const selectedStats = () => {
     untimed: indexes.length - timed
   };
 };
+
+const countUntimedPhrases = () => project.phrases
+  .filter((phrase) => phrase.startTimeMs === null)
+  .length;
 
 const rangeIndexes = (fromIndex: number, toIndex: number) => {
   const start = Math.min(fromIndex, toIndex);
@@ -1275,7 +1344,23 @@ const renderSequenceBar = () => {
 
 const renderValidation = () => {
   const issues = validateLyricTimingProject(project);
-  elements.validation.textContent = issues.length ? renderIssues(issues) : text("noValidationIssues");
+  if (issues.length) {
+    elements.validation.textContent = renderIssues(issues);
+    return;
+  }
+
+  const untimedCount = countUntimedPhrases();
+  elements.validation.textContent = untimedCount > 0
+    ? text("validationExportMissingTiming", { count: untimedCount })
+    : text("noValidationIssues");
+};
+
+const renderExportMenu = () => {
+  const hasLyrics = project.phrases.some((phrase) => phrase.text.trim());
+  for (const button of [elements.exportWithLyrics, elements.exportWebVtt, elements.exportLrc]) {
+    button.hidden = !hasLyrics;
+    if (button.nextElementSibling instanceof HTMLElement) button.nextElementSibling.hidden = !hasLyrics;
+  }
 };
 
 function render() {
@@ -1289,12 +1374,17 @@ function render() {
   renderPhraseTable();
   renderSequenceBar();
   renderValidation();
+  renderExportMenu();
   renderAutoSaveStatus();
   elements.status.textContent = text(statusMessage.key, statusMessage.values);
 }
 
 const downloadJson = (fileName: string, value: unknown) => {
-  const blob = new Blob([`${JSON.stringify(value, null, 2)}\n`], { type: "application/json" });
+  downloadText(fileName, `${JSON.stringify(value, null, 2)}\n`, "application/json;charset=utf-8");
+};
+
+const downloadText = (fileName: string, value: string, type: string) => {
+  const blob = new Blob([value], { type });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
@@ -1303,9 +1393,26 @@ const downloadJson = (fileName: string, value: unknown) => {
   URL.revokeObjectURL(url);
 };
 
+const fileBaseName = () => (
+  project.slug && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(project.slug) ? project.slug : "lyric-timing-editor"
+);
+
 const requireLyricsRightsConfirmation = () => {
   if (!project.phrases.length && !elements.lyricsText.value.trim()) return true;
   return window.confirm(text("rightsConfirm"));
+};
+
+const showExportIssues = (issues: LyricTimingIssue[]) => {
+  const missingTimingCount = issues.filter((issue) => issue.code === "missing-start").length;
+  const otherIssues = issues.filter((issue) => issue.code !== "missing-start");
+  if (missingTimingCount > 0) {
+    elements.status.textContent = [
+      text("exportBlockedMissingTiming", { count: missingTimingCount }),
+      otherIssues.length ? renderIssues(otherIssues) : ""
+    ].filter(Boolean).join(" / ");
+    return;
+  }
+  elements.status.textContent = renderIssues(issues);
 };
 
 const parseLyrics = () => {
@@ -1330,6 +1437,15 @@ const projectHasAnyTiming = () => project.phrases.some((phrase) => (
   phrase.endTimeMs !== null ||
   (phrase.words ?? []).some((word) => word.startTimeMs !== null || word.endTimeMs !== null)
 ));
+
+const loadSafeDemoLyrics = () => {
+  const hasCustomSource = elements.lyricsText.value.trim() && elements.lyricsText.value !== SAFE_DEMO_LYRIC_TEXT;
+  if ((hasCustomSource || projectHasAnyTiming()) && !window.confirm(text("replaceSourceConfirm"))) return;
+  elements.parseMode.value = "textalive";
+  elements.lyricsText.value = SAFE_DEMO_LYRIC_TEXT;
+  parseLyrics();
+  setStatus("safeDemoLoaded", { count: project.phrases.length });
+};
 
 const handleParseModeChange = () => {
   const previousMode = project.parseMode;
@@ -1467,9 +1583,15 @@ const placeSelectedEvenly = () => {
     const previousAnchorIndex = findPreviousTimedIndex(firstIndex, selectedSet);
     const nextAnchorIndex = findNextTimedIndex(lastIndex, selectedSet);
     anchorStartTimeMs = previousAnchorIndex >= 0 ? project.phrases[previousAnchorIndex].startTimeMs ?? 0 : 0;
+    const fallbackEndTimeMs = getKnownDurationMs() ?? getLastKnownStartTimeMs();
     anchorEndTimeMs = nextAnchorIndex >= 0
       ? project.phrases[nextAnchorIndex].startTimeMs ?? anchorStartTimeMs
-      : (getKnownDurationMs() ?? getLastKnownStartTimeMs() ?? getTimelineDurationMs());
+      : fallbackEndTimeMs ?? anchorStartTimeMs;
+
+    if (anchorEndTimeMs <= anchorStartTimeMs) {
+      setStatus("evenSpacingNeedsDuration");
+      return;
+    }
   }
 
   if (!movingIndexes.length) {
@@ -1816,6 +1938,7 @@ const endSequencePointer = (event: PointerEvent) => {
 };
 
 elements.parseLyrics.addEventListener("click", parseLyrics);
+elements.loadSafeDemo.addEventListener("click", loadSafeDemoLyrics);
 elements.parseMode.addEventListener("change", handleParseModeChange);
 elements.lyricsText.addEventListener("input", queueAutoSave);
 
@@ -1846,7 +1969,7 @@ elements.audioInput.addEventListener("change", async () => {
   queueAutoSave();
 });
 
-for (const input of [elements.title, elements.artist, elements.duration, elements.songUrl, elements.songleUrl, elements.textAliveUrl, elements.notes]) {
+for (const input of [elements.title, elements.artist, elements.slug, elements.duration, elements.songUrl, elements.songleUrl, elements.textAliveUrl, elements.notes]) {
   input.addEventListener("input", queueAutoSave);
   input.addEventListener("change", () => {
     applyMetadata();
@@ -1859,7 +1982,7 @@ elements.saveProject.addEventListener("click", () => {
   if (!requireLyricsRightsConfirmation()) return;
   applyMetadata();
   project = { ...project, updatedAt: new Date().toISOString() };
-  downloadJson("lyric-timing-editor.project.json", project);
+  downloadJson(`${fileBaseName()}.lyric-timing-project.json`, project);
   setStatus("projectDownloaded");
 });
 
@@ -1893,18 +2016,46 @@ elements.projectInput.addEventListener("change", async () => {
 const exportProject = (includeLyrics: boolean) => {
   if (includeLyrics && !requireLyricsRightsConfirmation()) return;
   applyMetadata();
-  const result = makeLyricTimingExport(project, { includeLyrics, includeSourceLine: true });
+  const result = makeLyricTimingExport(project, { includeLyrics });
   if (!result.ok) {
-    elements.status.textContent = renderIssues(result.issues);
+    showExportIssues(result.issues);
     return;
   }
-  downloadJson(includeLyrics ? "lyrics-timing.v2.with-lyrics.json" : "lyrics-timing.v2.timing-only.json", result.exportData);
+  downloadJson(`${fileBaseName()}.lyrics-timing.v2.${includeLyrics ? "with-lyrics" : "timing-only"}.json`, result.exportData);
   elements.exportMenu.open = false;
   setStatus(includeLyrics ? "exportedWithLyrics" : "exportedTimingOnly");
 };
 
+const exportWebVtt = () => {
+  if (!requireLyricsRightsConfirmation()) return;
+  applyMetadata();
+  const result = makeWebVttExport(project);
+  if (!result.ok) {
+    showExportIssues(result.issues);
+    return;
+  }
+  downloadText(`${fileBaseName()}.lyrics.vtt`, result.fileText, "text/vtt;charset=utf-8");
+  elements.exportMenu.open = false;
+  setStatus("exportedWebVtt");
+};
+
+const exportLrc = () => {
+  if (!requireLyricsRightsConfirmation()) return;
+  applyMetadata();
+  const result = makeLrcExport(project);
+  if (!result.ok) {
+    showExportIssues(result.issues);
+    return;
+  }
+  downloadText(`${fileBaseName()}.lyrics.lrc`, result.fileText, "text/plain;charset=utf-8");
+  elements.exportMenu.open = false;
+  setStatus("exportedLrc");
+};
+
 elements.exportWithLyrics.addEventListener("click", () => exportProject(true));
 elements.exportTimingOnly.addEventListener("click", () => exportProject(false));
+elements.exportWebVtt.addEventListener("click", exportWebVtt);
+elements.exportLrc.addEventListener("click", exportLrc);
 elements.projectDetails.addEventListener("click", () => elements.projectDetailsDialog.showModal());
 elements.helpOpen.addEventListener("click", () => elements.helpDialog.showModal());
 elements.restoreDraft.addEventListener("click", restoreAutoSaveDraft);

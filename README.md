@@ -4,6 +4,8 @@ Lyric Timing Editor is a browser-based tool for editing phrase-level lyric timin
 
 It loads local audio and UTF-8 lyric text in the browser, lets you stamp lyric phrases while listening, and exports JSON timing data. Audio files are not uploaded, bundled, analyzed, or saved into project/export JSON.
 
+The app also includes a small synthetic demo text button so the editor can be smoke-tested without real lyrics.
+
 ## Use
 
 ```powershell
@@ -31,9 +33,23 @@ This editor writes two kinds of JSON:
 Timing values are stored as integer milliseconds in `startTimeMs` / `endTimeMs`.
 The timing-only export does not include lyric text. Exports with lyric text and project JSON files may include copyrighted lyrics.
 
+Export targets:
+
+- Music Effect v2 JSON: the primary JSON handoff format, with timing-only and lyric-included variants.
+- WebVTT: a general web/subtitle export that includes lyric text.
+- LRC: a synchronized lyric player export that includes lyric text.
+
+See `docs/export-formats.md` for details.
+
 ## Important Rights Note
 
 Before publishing, distributing, uploading, or committing files that include lyric text, confirm the lyric rights and the destination terms. This repository intentionally does not include sample audio files, sample lyric files, or real-song timing data.
+
+Use the built-in safe demo text for testing when rights-cleared lyrics are not available. It is synthetic text written for this editor, not copied from a song.
+
+## License
+
+No open-source license has been selected yet. Treat reuse outside this repository as pending until a `LICENSE` file is added.
 
 ## Commands
 
@@ -60,3 +76,5 @@ npm run build
 ## Project Notes
 
 See `docs/background.md` for the short project origin and `docs/handoff.md` for the temporary Codex handoff notes.
+See `docs/policy-questions.md` for the pending license, security, privacy, and sample-data decisions.
+See `docs/legal-and-safety.md` for rights, Songle/TextAlive, and local-data safety notes.

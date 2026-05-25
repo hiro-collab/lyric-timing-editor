@@ -4,7 +4,8 @@ import {
   type LyricTimingAudioRef,
   type LyricTimingPhrase,
   type LyricTimingProject,
-  type LyricTimingProjectLine
+  type LyricTimingProjectLine,
+  type LyricTimingSongleRef
 } from "./lyricTimingTypes";
 
 export type ParseLyricTextOptions = {
@@ -12,12 +13,14 @@ export type ParseLyricTextOptions = {
 };
 
 export type CreateLyricTimingProjectOptions = {
+  slug?: string;
   title?: string;
   artist?: string;
   durationMs?: number | null;
   songUrl?: string;
   songleUrl?: string;
   textAliveUrl?: string;
+  songle?: LyricTimingSongleRef | null;
   audioRef?: LyricTimingAudioRef;
   parseMode?: LyricTextParseMode;
   lyricText?: string;
@@ -35,6 +38,11 @@ const padId = (value: number) => String(value).padStart(4, "0");
 
 const normalizeOptionalString = (value: string | undefined) => {
   const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+};
+
+export const normalizeSlug = (value: string | undefined) => {
+  const trimmed = value?.trim().toLowerCase();
   return trimmed ? trimmed : undefined;
 };
 
@@ -117,12 +125,14 @@ export const createLyricTimingProject = (
   const parsed = parseLyricText(options.lyricText ?? "", { mode: parseMode });
   return {
     schema: LYRIC_TIMING_PROJECT_SCHEMA,
+    slug: normalizeSlug(options.slug),
     title: options.title?.trim() ?? "",
     artist: options.artist?.trim() ?? "",
     durationMs: normalizeNullableMs(options.durationMs),
     songUrl: normalizeOptionalString(options.songUrl),
     songleUrl: normalizeOptionalString(options.songleUrl),
     textAliveUrl: normalizeOptionalString(options.textAliveUrl),
+    songle: options.songle ?? null,
     audioRef: options.audioRef,
     parseMode,
     createdAt: now,
@@ -137,17 +147,19 @@ export const updateLyricTimingProjectMetadata = (
   project: LyricTimingProject,
   updates: Partial<Pick<
     LyricTimingProject,
-    "title" | "artist" | "durationMs" | "songUrl" | "songleUrl" | "textAliveUrl" | "audioRef" | "notes"
+    "slug" | "title" | "artist" | "durationMs" | "songUrl" | "songleUrl" | "textAliveUrl" | "songle" | "audioRef" | "notes"
   >>,
   now = new Date()
 ): LyricTimingProject => ({
   ...project,
   ...updates,
+  slug: "slug" in updates ? normalizeSlug(updates.slug) : project.slug,
   title: updates.title?.trim() ?? project.title,
   artist: updates.artist?.trim() ?? project.artist,
   durationMs: "durationMs" in updates ? normalizeNullableMs(updates.durationMs) : project.durationMs,
   songUrl: "songUrl" in updates ? normalizeOptionalString(updates.songUrl) : project.songUrl,
   songleUrl: "songleUrl" in updates ? normalizeOptionalString(updates.songleUrl) : project.songleUrl,
   textAliveUrl: "textAliveUrl" in updates ? normalizeOptionalString(updates.textAliveUrl) : project.textAliveUrl,
+  songle: "songle" in updates ? updates.songle ?? null : project.songle,
   updatedAt: now.toISOString()
 });

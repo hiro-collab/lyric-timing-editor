@@ -46,7 +46,10 @@
                 <span data-i18n="pasteLyrics">Source text</span>
                 <textarea id="lyrics-text" class="lyrics-text" spellcheck="false"></textarea>
               </label>
-              <button id="parse-lyrics" type="button" class="solid-action" data-i18n="parseLyrics">Apply source text</button>
+              <div class="source-actions">
+                <button id="load-safe-demo" type="button" data-i18n="loadSafeDemo">Load safe demo</button>
+                <button id="parse-lyrics" type="button" class="solid-action" data-i18n="parseLyrics">Apply source text</button>
+              </div>
             </div>
           </details>
           <button id="project-details" type="button">
@@ -69,8 +72,20 @@
               <span class="dropdown-caret" aria-hidden="true"></span>
             </summary>
             <div class="menu-popover export-popover">
-              <button id="export-timing-only" type="button" data-i18n="exportTimingOnly">Timing only</button>
-              <button id="export-with-lyrics" type="button" data-i18n="exportWithLyrics">With lyrics</button>
+              <section class="export-group">
+                <h3 data-i18n="exportMusicEffect">Music Effect v2</h3>
+                <button id="export-timing-only" type="button" data-i18n="exportTimingOnly">Timing only</button>
+                <p data-i18n="exportTimingOnlyHint">Recommended for public repos</p>
+                <button id="export-with-lyrics" type="button" data-i18n="exportWithLyrics">With lyrics</button>
+                <p data-i18n="exportWithLyricsHint">Requires lyric rights confirmation</p>
+              </section>
+              <section class="export-group">
+                <h3 data-i18n="exportGeneralFormats">General formats</h3>
+                <button id="export-webvtt" type="button" data-i18n="exportWebVtt">WebVTT</button>
+                <p data-i18n="exportLyricsRequiredHint">Requires lyric rights confirmation</p>
+                <button id="export-lrc" type="button" data-i18n="exportLrc">LRC</button>
+                <p data-i18n="exportLyricsRequiredHint">Requires lyric rights confirmation</p>
+              </section>
             </div>
           </details>
           <button id="language-toggle" type="button" class="ghost-action" aria-label="Language">JA / EN</button>
@@ -223,30 +238,42 @@
             <label>
               <span data-i18n="title">Title</span>
               <input id="title-input" type="text" autocomplete="off" />
+              <p class="field-help" data-i18n="titleHelp">Display song title.</p>
             </label>
             <label>
               <span data-i18n="artist">Artist</span>
               <input id="artist-input" type="text" autocomplete="off" />
+              <p class="field-help" data-i18n="artistHelp">Display artist name.</p>
+            </label>
+            <label>
+              <span data-i18n="slugFileId">Slug / File ID</span>
+              <input id="slug-input" type="text" autocomplete="off" pattern="[a-z0-9]+(-[a-z0-9]+)*" maxlength="64" />
+              <p class="field-help" data-i18n="slugHelp">Editable ID used for file names and downstream song matching.</p>
             </label>
             <label>
               <span data-i18n="durationMs">Duration (ms)</span>
               <input id="duration-input" type="number" min="0" step="1" inputmode="numeric" />
+              <p class="field-help" data-i18n="durationHelp">Song duration in integer milliseconds.</p>
             </label>
             <label>
               <span data-i18n="songUrl">Song URL</span>
               <input id="song-url-input" type="url" autocomplete="off" />
+              <p class="field-help" data-i18n="songUrlHelp">Original video or source URL.</p>
             </label>
             <label>
               <span data-i18n="songleUrl">Songle URL</span>
               <input id="songle-url-input" type="url" autocomplete="off" />
+              <p class="field-help" data-i18n="songleUrlHelp">Songle registration URL for matching and metadata lookup.</p>
             </label>
             <label>
               <span data-i18n="textAliveUrl">TextAlive URL</span>
               <input id="textalive-url-input" type="url" autocomplete="off" />
+              <p class="field-help" data-i18n="textAliveUrlHelp">Optional TextAlive reference URL.</p>
             </label>
             <label class="full-span">
               <span data-i18n="notes">Notes</span>
               <textarea id="notes-input" rows="4"></textarea>
+              <p class="field-help" data-i18n="notesHelp">Working notes saved only in Project JSON.</p>
             </label>
           </div>
         </form>

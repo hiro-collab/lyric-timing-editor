@@ -519,13 +519,44 @@ kbd {
 
 .export-popover {
   display: grid;
-  width: 190px;
-  gap: 8px;
+  width: min(300px, calc(100vw - 32px));
+  gap: 12px;
+}
+
+.export-group {
+  display: grid;
+  gap: 6px;
+}
+
+.export-group + .export-group {
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.export-group h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 780;
+}
+
+.export-group p,
+.field-help {
+  margin: -2px 0 4px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
 }
 
 .source-popover {
   display: grid;
   gap: 12px;
+}
+
+.source-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 label {

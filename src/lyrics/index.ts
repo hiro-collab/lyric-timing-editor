@@ -10,6 +10,7 @@ export type {
   LyricTimingProject,
   LyricTimingProjectLine,
   LyricTimingProjectLineKind,
+  LyricTimingSongleRef,
   LyricTimingWord
 } from "./lyricTimingTypes";
 export {
@@ -23,16 +24,23 @@ export type {
 } from "./lyricTimingProject";
 export {
   createLyricTimingProject,
+  normalizeSlug,
   parseLyricText,
   updateLyricTimingProjectMetadata
 } from "./lyricTimingProject";
 export type {
   LyricTimingExportOptions,
-  LyricTimingExportResult
+  LyricTimingExportResult,
+  LyricTimingTextExportOptions,
+  LyricTimingTextExportResult
 } from "./lyricTimingExport";
 export {
   LYRIC_TIMING_RIGHTS_NOTICE,
+  LYRIC_TIMING_ONLY_RIGHTS_NOTICE,
+  LYRIC_TIMING_WITH_LYRICS_RIGHTS_NOTICE,
+  makeLrcExport,
   makeLyricTimingExport,
+  makeWebVttExport,
   validateLyricTimingProject
 } from "./lyricTimingExport";
 export type { LyricCue } from "./lyricTimingApply";

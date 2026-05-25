@@ -1,4 +1,4 @@
-export const LYRIC_TIMING_PROJECT_SCHEMA = "music-effect.lyric-timing-workbench.project.v1" as const;
+export const LYRIC_TIMING_PROJECT_SCHEMA = "lyric-timing-editor.project.v1" as const;
 export const LYRIC_TIMING_EXPORT_SCHEMA = "music-effect.lyrics-timing.v2" as const;
 
 export type LyricTextParseMode = "textalive" | "literal";
@@ -6,6 +6,17 @@ export type LyricTextParseMode = "textalive" | "literal";
 export type LyricTimingAudioRef = {
   fileName?: string;
   durationMs?: number | null;
+};
+
+export type LyricTimingSongleRef = {
+  id?: number;
+  artistId?: number;
+  url?: string;
+  permalink?: string;
+  code?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  recognizedAt?: string;
 };
 
 export type LyricTimingProjectLineKind = "phrase" | "sectionBreak" | "comment";
@@ -48,12 +59,14 @@ export type LyricTimingPhrase = {
 
 export type LyricTimingProject = {
   schema: typeof LYRIC_TIMING_PROJECT_SCHEMA;
+  slug?: string;
   title: string;
   artist: string;
   durationMs: number | null;
   songUrl?: string;
   songleUrl?: string;
   textAliveUrl?: string;
+  songle?: LyricTimingSongleRef | null;
   audioRef?: LyricTimingAudioRef;
   parseMode: LyricTextParseMode;
   createdAt: string;
@@ -78,11 +91,12 @@ export type LyricTimingExportPhrase = {
   startTimeMs: number;
   endTimeMs: number;
   text?: string;
-  sourceLine?: number;
+  sourceLine: number;
 };
 
 export type LyricTimingExportV2 = {
   schema: typeof LYRIC_TIMING_EXPORT_SCHEMA;
+  slug?: string;
   title: string;
   artist: string;
   durationMs: number | null;
@@ -91,5 +105,6 @@ export type LyricTimingExportV2 = {
   timeUnit: "ms";
   includesLyrics: boolean;
   rightsNotice: string;
+  songle?: LyricTimingSongleRef | null;
   phrases: LyricTimingExportPhrase[];
 };

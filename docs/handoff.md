@@ -2,6 +2,9 @@
 
 This file is a short-lived handoff note for opening a fresh Codex thread on this standalone project. It can be reorganized later.
 
+For cross-thread coordination, see `docs/codex-collaboration.md`.
+For a copy/paste starter prompt, see `docs/thread-handoff-template.md`.
+
 ## Repository
 
 - GitHub: `https://github.com/hiro-collab/lyric-timing-editor.git`
@@ -28,6 +31,16 @@ Do not commit:
 - export JSON containing lyric text unless rights are confirmed
 
 The repository currently has no explicit open-source license. Treat that as a pending decision before broader public reuse.
+
+## Codex Thread Coordination
+
+- Use the same worktree for sequential review or narrow docs-only work.
+- Use a separate Git worktree for parallel implementation, overlapping file ownership, or risky exploratory changes.
+- Keep `_worktrees/` local-only.
+- Treat commits as stable handoff points.
+- Do not push unless the user explicitly asks.
+- If the worktree is dirty at thread start, identify whether the changes belong to another thread before editing.
+- Current security review work can stay in this worktree because it is not expected to run in parallel with feature implementation.
 
 ## GitHub Pages
 

@@ -21,6 +21,7 @@ type StatusMessage = {
   key: string;
   values?: Record<string, string | number>;
 };
+type ValidationUiState = "ok" | "warning" | "error";
 type Snapshot = {
   project: LyricTimingProject;
   selectedPhraseIndex: number;
@@ -282,14 +283,14 @@ const i18n: Record<Language, Record<string, string>> = {
     lyricsTextSaveFailed: "歌詞テキストを保存できませんでした。保存先の権限を確認するか、もう一度保存先を選んでください",
     lyricsTextEmpty: "保存する歌詞テキストがありません",
     metadataUpdated: "プロジェクト詳細を更新しました",
-    projectSaved: "作業用Project JSONを保存しました。次回は同じファイルへ上書きします。Music Effect用はExport > Music Effect v2です",
+    projectSaved: "Editor再開用の作業JSONを保存しました。次回は同じファイルへ上書きします。Music Effect用はExport > Music Effect v2です",
     projectSaveCanceled: "作業Project保存をキャンセルしました",
     projectSaveFailed: "作業用Project JSONを保存できませんでした。保存先の権限を確認するか、もう一度保存先を選んでください",
-    projectDownloaded: "作業用Project JSONをダウンロードしました。Music Effect用はExport > Music Effect v2です",
+    projectDownloaded: "Editor再開用の作業JSONをダウンロードしました。Music Effect用はExport > Music Effect v2です",
     projectLoaded: "Projectを読み込みました",
     draftRestored: "自動保存下書きを復元しました。音源ファイルは再読み込みしてください",
     draftDiscarded: "自動保存下書きを削除しました",
-    draftDownloaded: "自動保存下書きを作業用Project JSONとしてダウンロードしました",
+    draftDownloaded: "自動保存下書きをEditor再開用の作業JSONとしてダウンロードしました",
     draftSaveFailed: "自動保存に失敗しました。ブラウザのストレージ権限と空き容量を確認してください",
     unsupportedProject: "対応していないProject schemaです",
     invalidProjectFile: "作業用Project JSONを読み込めませんでした。ファイル形式を確認してください",
@@ -336,8 +337,10 @@ const i18n: Record<Language, Record<string, string>> = {
     redoEmpty: "やり直せる操作がありません",
     languageChanged: "表示言語を切り替えました",
     rightsConfirm: "この出力には歌詞本文が含まれる場合があります。公開・配布・アップロード・コミット前に権利と配布先の条件を確認してください。続行しますか?",
-    validationExportMissingTiming: "作業Project保存は可能です。Exportには全フレーズの時刻が必要です。未打刻: {count}件。",
-    exportBlockedMissingTiming: "Exportには全フレーズのstartTimeMsが必要です。未打刻が{count}件あります。選択バーの「未打刻も含めて均一配置」で仮配置するか、打刻後に再度Exportしてください。途中作業は作業Project保存で保存できます。",
+    validationExportMissingTiming: "作業JSON保存は可能です。Exportには全フレーズの時刻が必要です。シーケンスバーの未打刻の点を確認してください。未打刻: {count}件。",
+    exportReadinessMissingTiming: "Export前に未打刻を解消してください。シーケンスバーの未打刻の点が残っています。未打刻: {count}件。",
+    exportReadinessValidationIssue: "Export前に検証エラーを確認してください。",
+    exportBlockedMissingTiming: "Exportには全フレーズのstartTimeMsが必要です。未打刻が{count}件あります。選択バーの「未打刻も含めて均一配置」で仮配置するか、打刻後に再度Exportしてください。途中作業は作業JSON保存で保存できます。",
     exportMenuClosed: "Exportメニューを閉じました"
   },
   en: {
@@ -499,14 +502,14 @@ const i18n: Record<Language, Record<string, string>> = {
     lyricsTextSaveFailed: "Could not save lyric text. Check file permission or choose the save location again",
     lyricsTextEmpty: "There is no lyric text to save",
     metadataUpdated: "Project metadata updated",
-    projectSaved: "Work Project JSON saved. The next save will overwrite the same file. Use Export > Music Effect v2 for Music Effect",
+    projectSaved: "Editor work JSON saved. The next save will overwrite the same file. Use Export > Music Effect v2 for Music Effect",
     projectSaveCanceled: "Work Project save canceled",
     projectSaveFailed: "Could not save Work Project JSON. Check file permission or choose the save location again",
-    projectDownloaded: "Work Project JSON downloaded. Use Export > Music Effect v2 for Music Effect",
+    projectDownloaded: "Editor work JSON downloaded. Use Export > Music Effect v2 for Music Effect",
     projectLoaded: "Project loaded",
     draftRestored: "Autosave draft restored. Load the audio file again before playback",
     draftDiscarded: "Autosave draft deleted",
-    draftDownloaded: "Autosave draft downloaded as Work Project JSON",
+    draftDownloaded: "Autosave draft downloaded as editor work JSON",
     draftSaveFailed: "Autosave failed. Check browser storage permissions and free space",
     unsupportedProject: "Unsupported project schema",
     invalidProjectFile: "Could not load Work Project JSON. Check the file format",
@@ -553,7 +556,9 @@ const i18n: Record<Language, Record<string, string>> = {
     redoEmpty: "Nothing to redo",
     languageChanged: "Language switched",
     rightsConfirm: "This file may include lyric text. Confirm rights and destination terms before publishing, distributing, uploading, or committing it. Continue?",
-    validationExportMissingTiming: "Work Project save is available. Export requires timings for every phrase. Unmarked: {count}.",
+    validationExportMissingTiming: "Editor work JSON save is available. Export requires timings for every phrase. Check the unmarked dots in the sequence bar. Unmarked: {count}.",
+    exportReadinessMissingTiming: "Resolve unmarked phrases before export. Unmarked dots remain in the sequence bar. Unmarked: {count}.",
+    exportReadinessValidationIssue: "Check validation errors before export.",
     exportBlockedMissingTiming: "Export requires startTimeMs for every phrase. {count} phrases are unmarked. Use Even with unmarked in the selection bar, or stamp timings before exporting again. Save incomplete work with Work Project Save.",
     exportMenuClosed: "Export menu closed"
   }
@@ -603,6 +608,7 @@ const elements = {
   exportWebVtt: byId<HTMLButtonElement>("export-webvtt"),
   exportLrc: byId<HTMLButtonElement>("export-lrc"),
   exportMenu: byId<HTMLDetailsElement>("export-menu"),
+  exportReadiness: byId<HTMLElement>("export-readiness"),
   languageToggle: byId<HTMLButtonElement>("language-toggle"),
   helpOpen: byId<HTMLButtonElement>("help-open"),
   clearLocalData: byId<HTMLButtonElement>("clear-local-data"),
@@ -651,6 +657,7 @@ const elements = {
   followList: byId<HTMLButtonElement>("follow-list"),
   summary: byId<HTMLElement>("project-summary"),
   status: byId<HTMLElement>("status-message"),
+  validationSection: byId<HTMLElement>("validation-section"),
   validation: byId<HTMLElement>("validation-message")
 };
 
@@ -1359,7 +1366,7 @@ const discardAutoSaveDraft = async (statusKey = "draftDiscarded") => {
 const downloadAutoSaveDraft = () => {
   if (!availableDraft) return;
   if (hasDraftContent(availableDraft) && !window.confirm(text("rightsConfirm"))) return;
-  downloadJson("lyric-timing-editor.autosave.project.json", availableDraft.project);
+  downloadJson("lyric-timing-editor.autosave.work-project.json", availableDraft.project);
   setStatus("draftDownloaded");
 };
 
@@ -1936,17 +1943,38 @@ const renderSequenceBar = () => {
   elements.sequenceBar.replaceChildren(track);
 };
 
+const setValidationDisplay = (
+  state: ValidationUiState,
+  validationMessage: string,
+  exportReadinessMessage = validationMessage
+) => {
+  elements.validationSection.dataset.state = state;
+  elements.validation.textContent = validationMessage;
+  elements.exportMenu.dataset.state = state;
+  elements.exportReadiness.dataset.state = state;
+  elements.exportReadiness.hidden = state === "ok";
+  elements.exportReadiness.textContent = state === "ok" ? "" : exportReadinessMessage;
+};
+
 const renderValidation = () => {
   const issues = validateLyricTimingProject(project);
   if (issues.length) {
-    elements.validation.textContent = renderIssues(issues);
+    const state: ValidationUiState = issues.some((issue) => issue.level === "error") ? "error" : "warning";
+    setValidationDisplay(state, renderIssues(issues), text("exportReadinessValidationIssue"));
     return;
   }
 
   const untimedCount = countUntimedPhrases();
-  elements.validation.textContent = untimedCount > 0
-    ? text("validationExportMissingTiming", { count: untimedCount })
-    : text("noValidationIssues");
+  if (untimedCount > 0) {
+    setValidationDisplay(
+      "warning",
+      text("validationExportMissingTiming", { count: untimedCount }),
+      text("exportReadinessMissingTiming", { count: untimedCount })
+    );
+    return;
+  }
+
+  setValidationDisplay("ok", text("noValidationIssues"), "");
 };
 
 const renderExportMenu = () => {
@@ -2027,8 +2055,14 @@ const downloadText = (fileName: string, value: string, type: string) => {
   const link = document.createElement("a");
   link.href = url;
   link.download = fileName;
+  link.rel = "noopener";
+  link.style.display = "none";
+  document.body.append(link);
   link.click();
-  URL.revokeObjectURL(url);
+  window.setTimeout(() => {
+    link.remove();
+    URL.revokeObjectURL(url);
+  }, 1000);
 };
 
 const fileBaseName = () => (
@@ -2044,13 +2078,17 @@ const showExportIssues = (issues: LyricTimingIssue[]) => {
   const missingTimingCount = issues.filter((issue) => issue.code === "missing-start").length;
   const otherIssues = issues.filter((issue) => issue.code !== "missing-start");
   if (missingTimingCount > 0) {
-    elements.status.textContent = [
+    const message = [
       text("exportBlockedMissingTiming", { count: missingTimingCount }),
       otherIssues.length ? renderIssues(otherIssues) : ""
     ].filter(Boolean).join(" / ");
+    elements.status.textContent = message;
+    setValidationDisplay("error", message, text("exportReadinessMissingTiming", { count: missingTimingCount }));
     return;
   }
-  elements.status.textContent = renderIssues(issues);
+  const message = renderIssues(issues);
+  elements.status.textContent = message;
+  setValidationDisplay("error", message, text("exportReadinessValidationIssue"));
 };
 
 const parseLyrics = (options: ParseLyricsOptions = {}) => {
@@ -2731,7 +2769,7 @@ const saveProject = async () => {
   if (!requireLyricsRightsConfirmation()) return;
   applyMetadata();
   project = { ...project, updatedAt: new Date().toISOString() };
-  const fileName = `${fileBaseName()}.lyric-timing-project.json`;
+  const fileName = `${fileBaseName()}.lyric-timing-editor.work-project.json`;
   const jsonText = projectJsonText();
 
   if (!canSaveToPickedFile()) {
@@ -2853,7 +2891,7 @@ const exportProject = (includeLyrics: boolean) => {
     showExportIssues(result.issues);
     return;
   }
-  downloadJson(`${fileBaseName()}.lyrics-timing.v2.${includeLyrics ? "with-lyrics" : "timing-only"}.json`, result.exportData);
+  downloadJson(`${fileBaseName()}.music-effect.lyrics-timing.v2.${includeLyrics ? "with-lyrics" : "timing-only"}.json`, result.exportData);
   elements.exportMenu.open = false;
   setStatus(includeLyrics ? "exportedWithLyrics" : "exportedTimingOnly");
 };

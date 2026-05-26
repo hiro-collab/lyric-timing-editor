@@ -40,6 +40,11 @@ This editor writes two kinds of JSON:
 - Work project JSON: editable draft data for this editor. This is for resuming work in Lyric Timing Editor, not for Music Effect import.
 - Timing export JSON: completed timing data for use by another music/video system.
 
+Default filenames intentionally separate these two roles:
+
+- Editor work files: `*.lyric-timing-editor.work-project.json`
+- Music Effect v2 exports: `*.music-effect.lyrics-timing.v2.timing-only.json` or `*.music-effect.lyrics-timing.v2.with-lyrics.json`
+
 Timing values are stored as integer milliseconds. `startTimeMs` is the editable phrase boundary. Exported `endTimeMs` is derived from the next phrase `startTimeMs`; for the last phrase it is derived from `durationMs` when available.
 The timing-only export does not include lyric text. Exports with lyric text and project JSON files may include copyrighted lyrics.
 

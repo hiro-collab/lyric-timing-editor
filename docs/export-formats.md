@@ -17,6 +17,7 @@ Adding a new `displayMode` value is not treated as a casual additive change for 
 - All exported text files use UTF-8 without BOM by default.
 - Export files are treated as completed timing outputs. If any phrase has no start time, export is blocked.
 - Incomplete work should be saved as a Lyric Timing Editor Work Project JSON instead.
+- Default filenames use `*.music-effect.lyrics-timing.v2.timing-only.json` or `*.music-effect.lyrics-timing.v2.with-lyrics.json` so they are visually distinct from editor work files such as `*.lyric-timing-editor.work-project.json`.
 - The editor may offer an explicit "fill unmarked phrases" edit action before export. That action updates the project and can be undone with Undo or Ctrl+Z.
 - Exported notes are omitted. Working notes stay in Work Project JSON only.
 - Real lyric text, audio files, and real-song lyric-included exports should not be committed or published without rights confirmation.

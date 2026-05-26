@@ -120,6 +120,7 @@
                 <span class="dropdown-caret" aria-hidden="true"></span>
               </summary>
               <div class="menu-popover export-popover">
+                <p id="export-readiness" class="export-readiness" role="status" aria-live="polite" hidden></p>
                 <section class="export-group">
                   <h3 data-i18n="exportMusicEffect">Music Effect v2</h3>
                   <button id="export-timing-only" type="button" data-i18n="exportTimingOnly">Timing only</button>
@@ -282,7 +283,7 @@
             <h2 data-i18n="status">Status</h2>
             <p id="status-message" role="status">Ready</p>
           </section>
-          <section>
+          <section id="validation-section" data-state="ok">
             <h2 data-i18n="validation">Validation</h2>
             <p id="validation-message">No validation issues</p>
           </section>

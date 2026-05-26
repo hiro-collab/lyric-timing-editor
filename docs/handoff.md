@@ -45,7 +45,7 @@ The repository currently has no explicit open-source license. Treat that as a pe
 
 ## Music Effect Installer Coordination
 
-Observed on 2026-05-27: a browser download such as `lyric-timing-editor.lyric-timing-project (4).json` can be selected in Music Effect's Lyrics Data Installer timing JSON field. The immediate failure is not the `(4)` suffix itself; it is that Work Project JSON uses `schema: "lyric-timing-editor.project.v1"` while the installer expects `schema: "music-effect.lyrics-timing.v2"`.
+Observed on 2026-05-27: a browser download such as `monitoring.lyric-timing-editor.work-project (4).json` can be selected in Music Effect's Lyrics Data Installer timing JSON field. The immediate failure is not the `(4)` suffix itself; it is that Work Project JSON uses `schema: "lyric-timing-editor.project.v1"` while the installer expects `schema: "music-effect.lyrics-timing.v2"`.
 
 Lyric Timing Editor side mitigation:
 

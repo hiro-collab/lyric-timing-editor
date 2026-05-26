@@ -352,6 +352,18 @@ kbd {
   display: none;
 }
 
+.menu-panel[data-state="warning"] > summary {
+  border-color: rgba(150, 99, 10, 0.58);
+  background: #fff8e7;
+  color: #5d3e07;
+}
+
+.menu-panel[data-state="error"] > summary {
+  border-color: rgba(180, 35, 24, 0.58);
+  background: #fff1ef;
+  color: var(--red);
+}
+
 .control-icon {
   display: inline-grid;
   position: relative;
@@ -554,6 +566,24 @@ kbd {
   display: grid;
   width: min(300px, calc(100vw - 32px));
   gap: 12px;
+}
+
+.export-readiness {
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid rgba(150, 99, 10, 0.42);
+  border-radius: 6px;
+  background: #fff8e7;
+  color: #4b3207;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.45;
+}
+
+.export-readiness[data-state="error"] {
+  border-color: rgba(180, 35, 24, 0.42);
+  background: #fff1ef;
+  color: var(--red);
 }
 
 .export-group {
@@ -1180,11 +1210,12 @@ label span {
 
 .sequence-marker.is-untimed {
   top: 36px;
-  width: 8px;
-  height: 8px;
-  min-height: 8px;
-  background: #8d9993;
-  opacity: 0.5;
+  width: 10px;
+  height: 10px;
+  min-height: 10px;
+  border-color: #fff2c6;
+  background: var(--amber);
+  opacity: 0.88;
 }
 
 .sequence-marker.is-current {
@@ -1509,6 +1540,30 @@ label span {
 .status-panel section {
   padding: 12px;
   border-bottom: 1px solid #e3e9e6;
+}
+
+.status-panel section[data-state="warning"] {
+  background: #fff9e9;
+  box-shadow: inset 4px 0 0 rgba(150, 99, 10, 0.62);
+}
+
+.status-panel section[data-state="error"] {
+  background: #fff2f0;
+  box-shadow: inset 4px 0 0 rgba(180, 35, 24, 0.68);
+}
+
+.status-panel section[data-state="warning"] h2 {
+  color: var(--amber);
+}
+
+.status-panel section[data-state="error"] h2 {
+  color: var(--red);
+}
+
+.status-panel section[data-state="warning"] p,
+.status-panel section[data-state="error"] p {
+  color: var(--ink);
+  font-weight: 650;
 }
 
 .status-panel section:last-child {

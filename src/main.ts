@@ -976,21 +976,33 @@ const transferReparsedPhraseTiming = (
 
 const projectHasAnyTiming = () => project.phrases.some(phraseHasTiming);
 
-const focusSourceInsertion = (lineIndex: number) => {
+const restoreLyricsTextScroll = (scrollTop: number, scrollLeft: number) => {
+  elements.lyricsText.scrollTop = scrollTop;
+  elements.lyricsText.scrollLeft = scrollLeft;
+  window.requestAnimationFrame(() => {
+    elements.lyricsText.scrollTop = scrollTop;
+    elements.lyricsText.scrollLeft = scrollLeft;
+  });
+};
+
+const focusSourceInsertion = (lineIndex: number, scrollTop: number, scrollLeft: number) => {
   const linesBefore = elements.lyricsText.value.split("\n").slice(0, lineIndex);
   const start = linesBefore.join("\n").length + (lineIndex > 0 ? 1 : 0);
   const end = start + BLANK_SOURCE_MARKER.length;
   elements.lyricsText.focus();
   elements.lyricsText.setSelectionRange(start, end);
+  restoreLyricsTextScroll(scrollTop, scrollLeft);
 };
 
 const insertSourceLine = (lineText: string, lineIndex: number) => {
+  const scrollTop = elements.lyricsText.scrollTop;
+  const scrollLeft = elements.lyricsText.scrollLeft;
   const normalized = elements.lyricsText.value.replace(/\r\n?/g, "\n");
   const lines = normalized.length ? normalized.split("\n") : [];
   const insertAt = Math.max(0, Math.min(lineIndex, lines.length));
   lines.splice(insertAt, 0, lineText);
   elements.lyricsText.value = lines.join("\n");
-  focusSourceInsertion(insertAt);
+  focusSourceInsertion(insertAt, scrollTop, scrollLeft);
   queueAutoSave();
   return insertAt;
 };

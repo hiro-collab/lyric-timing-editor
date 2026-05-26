@@ -17,11 +17,13 @@ The hosted page runs in your browser. Local audio and lyric files are not upload
 Local development:
 
 ```powershell
-npm install
+npm ci
 npm run dev
 ```
 
 Then open the local URL printed by Vite.
+
+For setting up a fresh laptop from GitHub, see `docs/local-development.md`.
 
 ## Build
 
@@ -69,6 +71,7 @@ No open-source license has been selected yet. Treat reuse outside this repositor
 
 ```powershell
 npm run dev
+npm run check
 npm run typecheck
 npm test
 npm run build

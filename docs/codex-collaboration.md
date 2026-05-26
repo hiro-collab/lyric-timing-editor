@@ -72,6 +72,7 @@ For a review-only or security-only thread, the npm checks can be skipped until a
 Read:
 
 - `README.md`
+- `docs/local-development.md`
 - `docs/handoff.md`
 - `docs/design.md`
 - `docs/export-formats.md`
@@ -105,4 +106,3 @@ Use this short form in `docs/handoff.md` when a cross-thread handoff is needed:
 ```
 
 For longer notes, use `docs/thread-handoff-template.md`.
-

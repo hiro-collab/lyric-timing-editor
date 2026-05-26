@@ -73,7 +73,7 @@ npm run build
 
 - Load local audio in the browser.
 - Load lyric text from a file or pasted text.
-- Parse lyrics in TextAlive-compatible mode or literal mode.
+- Parse lyrics in TextAlive-compatible mode or literal mode. Each non-empty source text line becomes one phrase, so line breaks split lyrics.
 - Add `[blank]`, `[no lyrics]`, `[歌詞なし]`, or `[無表示]` as a source line when an intro, interlude, or outro should clear the lyric display.
 - Insert `[blank]` from the source text editor, including before or after the current phrase while preserving matched timings where possible.
 - Show current and next phrase.

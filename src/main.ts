@@ -36,6 +36,7 @@ type AutoSaveDraft = Snapshot & {
 };
 type ParseLyricsOptions = {
   selectPhraseIndex?: number;
+  focusMode?: FocusMode;
   statusKey?: string;
 };
 type AutoSaveStatus = "idle" | "pending" | "saving" | "saved" | "error" | "unavailable";
@@ -1790,7 +1791,7 @@ const parseLyrics = (options: ParseLyricsOptions = {}) => {
     0,
     Math.min(options.selectPhraseIndex ?? selectedPhraseIndex, Math.max(0, project.phrases.length - 1))
   );
-  focusMode = "follow";
+  focusMode = options.focusMode ?? "follow";
   clearSelection();
   const statusKey = options.statusKey ?? (previousProject.phrases.some(phraseHasTiming) ? "lyricsParsedWithTiming" : "lyricsParsed");
   setStatus(statusKey, {
@@ -1806,7 +1807,8 @@ const insertBlankLineAtCursor = () => {
 };
 
 const insertBlankPhraseNearCurrent = (placement: "before" | "after") => {
-  const phrase = project.phrases[selectedPhraseIndex];
+  const currentIndex = getCurrentPhraseIndex();
+  const phrase = currentIndex >= 0 ? project.phrases[currentIndex] : undefined;
   if (!phrase) {
     setStatus("noCurrentPhrase");
     return;
@@ -1814,7 +1816,8 @@ const insertBlankPhraseNearCurrent = (placement: "before" | "after") => {
   const insertAt = placement === "before" ? phrase.sourceLine - 1 : phrase.sourceLine;
   insertSourceLine(BLANK_SOURCE_MARKER, insertAt);
   parseLyrics({
-    selectPhraseIndex: placement === "before" ? selectedPhraseIndex : selectedPhraseIndex + 1,
+    selectPhraseIndex: placement === "before" ? currentIndex : currentIndex + 1,
+    focusMode: "manual",
     statusKey: "blankPhraseInserted"
   });
 };

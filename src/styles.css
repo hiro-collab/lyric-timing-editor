@@ -822,22 +822,6 @@ label span {
   text-transform: uppercase;
 }
 
-.eyebrow.is-manual-mode {
-  color: var(--amber);
-}
-
-#follow-playback.is-active {
-  border-color: var(--green);
-  background: var(--green);
-  color: #ffffff;
-}
-
-#follow-playback.is-active:hover {
-  border-color: var(--green-dark);
-  background: var(--green-dark);
-  color: #ffffff;
-}
-
 .stage-heading h2,
 .next-phrase-card h2 {
   margin-top: 2px;
@@ -1056,6 +1040,15 @@ label span {
 .sequence-follow-action {
   flex: 0 0 auto;
   margin-left: auto;
+  border-color: var(--green);
+  background: var(--green);
+  color: #ffffff;
+}
+
+.sequence-follow-action:hover {
+  border-color: var(--green-dark);
+  background: var(--green-dark);
+  color: #ffffff;
 }
 
 .selection-edit-bar {

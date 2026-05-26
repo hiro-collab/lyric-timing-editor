@@ -609,7 +609,6 @@ const elements = {
   helpDialog: byId<HTMLDialogElement>("help-dialog"),
   projectDetails: byId<HTMLButtonElement>("project-details"),
   projectDetailsDialog: byId<HTMLDialogElement>("project-details-dialog"),
-  focusModeLabel: byId<HTMLElement>("focus-mode-label"),
   currentPhraseCard: byId<HTMLElement>("current-phrase-card"),
   followPlayback: byId<HTMLButtonElement>("follow-playback"),
   currentPhraseText: byId<HTMLElement>("current-phrase-text"),
@@ -1738,12 +1737,10 @@ const renderPhraseStage = () => {
   const isFollowMode = focusMode === "follow";
 
   elements.currentPhraseCard.dataset.focusMode = focusMode;
-  elements.focusModeLabel.textContent = isFollowMode ? text("followPlayback") : text("manualSelection");
-  elements.focusModeLabel.classList.toggle("is-manual-mode", !isFollowMode);
-  elements.followPlayback.classList.toggle("is-active", isFollowMode);
+  elements.followPlayback.hidden = isFollowMode;
   elements.followPlayback.setAttribute("aria-pressed", isFollowMode ? "true" : "false");
   elements.followPlayback.title = text("followPlaybackTitle");
-  elements.followPlayback.textContent = text(isFollowMode ? "followPlayback" : "returnToFollowPlayback");
+  elements.followPlayback.textContent = text("returnToFollowPlayback");
   elements.sequenceModeLabel.textContent = text(isFollowMode ? "followModeActive" : "manualModeActive");
   elements.sequenceModeLabel.dataset.focusMode = focusMode;
   elements.sequenceModeHint.textContent = text(isFollowMode ? "followModeHint" : "manualModeHint");

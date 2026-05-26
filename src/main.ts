@@ -1451,6 +1451,16 @@ const makeCell = (textContent: string, className?: string) => {
   return cell;
 };
 
+const keepElementVisibleInside = (container: HTMLElement, target: HTMLElement) => {
+  const containerRect = container.getBoundingClientRect();
+  const targetRect = target.getBoundingClientRect();
+  if (targetRect.top < containerRect.top) {
+    container.scrollTop -= containerRect.top - targetRect.top;
+  } else if (targetRect.bottom > containerRect.bottom) {
+    container.scrollTop += targetRect.bottom - containerRect.bottom;
+  }
+};
+
 const renderPhraseTable = () => {
   if (!project.phrases.length) {
     const empty = document.createElement("div");
@@ -1505,9 +1515,9 @@ const renderPhraseTable = () => {
   table.append(thead, tbody);
   elements.phraseTable.replaceChildren(table);
 
-  const activeRow = elements.phraseTable.querySelector(`[data-phrase-index="${currentIndex}"]`);
+  const activeRow = elements.phraseTable.querySelector<HTMLElement>(`[data-phrase-index="${currentIndex}"]`);
   if (activeRow && focusMode === "follow") {
-    activeRow.scrollIntoView({ block: "nearest" });
+    keepElementVisibleInside(elements.phraseTable, activeRow);
   }
 };
 

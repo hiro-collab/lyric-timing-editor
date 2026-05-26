@@ -116,6 +116,13 @@ const i18n: Record<Language, Record<string, string>> = {
     insertBlankLine: "カーソル位置に[blank]",
     insertBlankBeforeCurrent: "表示中フレーズの前に[blank]",
     insertBlankAfterCurrent: "表示中フレーズの後に[blank]",
+    sourceSearchHint: "元テキスト内の文字列を検索・置換します。正規表現は使いません。大文字小文字は区別します。",
+    sourceSearchLabel: "検索",
+    sourceReplaceLabel: "置換後",
+    sourceFindPrev: "前へ",
+    sourceFindNext: "次へ",
+    sourceReplaceOne: "1件置換",
+    sourceReplaceAll: "すべて置換",
     loadSafeDemo: "安全なデモ文",
     parseLyrics: "元テキストを反映",
     projectDetails: "プロジェクト詳細",
@@ -228,6 +235,12 @@ const i18n: Record<Language, Record<string, string>> = {
     lyricsParsedWithTiming: "歌詞を {count} フレーズとして読み込み、{kept} 件の打刻を保持しました",
     blankLineInserted: "[blank]を元テキストに挿入しました。反映ボタンでフレーズに追加できます",
     blankPhraseInserted: "無表示フレーズを追加し、{kept} 件の打刻を保持しました",
+    sourceSearchEmpty: "検索文字列を入力してください",
+    sourceSearchNoMatch: "一致する文字列はありません",
+    sourceSearchMatch: "{current}/{total} 件目: {query}",
+    sourceReplaceDone: "1件置換しました。反映ボタンでProjectに反映できます",
+    sourceReplaceAllDone: "{count} 件置換しました。反映ボタンでProjectに反映できます",
+    sourceReplaceTooLarge: "置換後の元テキストが大きすぎます。上限は {limit} です",
     safeDemoLoaded: "権利確認不要のデモ文を {count} フレーズとして読み込みました",
     audioUpdated: "音源参照を更新しました。音源本体は保存しません",
     metadataUpdated: "プロジェクト詳細を更新しました",
@@ -299,6 +312,13 @@ const i18n: Record<Language, Record<string, string>> = {
     insertBlankLine: "Insert [blank] at cursor",
     insertBlankBeforeCurrent: "[blank] before shown phrase",
     insertBlankAfterCurrent: "[blank] after shown phrase",
+    sourceSearchHint: "Find and replace plain text in the source editor. Regex is not used. Search is case-sensitive.",
+    sourceSearchLabel: "Find",
+    sourceReplaceLabel: "Replace with",
+    sourceFindPrev: "Previous",
+    sourceFindNext: "Next",
+    sourceReplaceOne: "Replace",
+    sourceReplaceAll: "Replace all",
     loadSafeDemo: "Safe demo text",
     parseLyrics: "Apply source text",
     projectDetails: "Project Details",
@@ -411,6 +431,12 @@ const i18n: Record<Language, Record<string, string>> = {
     lyricsParsedWithTiming: "Loaded {count} lyric phrases and kept {kept} timings",
     blankLineInserted: "Inserted [blank] into the source text. Apply the source text to add it as a phrase",
     blankPhraseInserted: "Inserted a blank phrase and kept {kept} timings",
+    sourceSearchEmpty: "Enter text to find",
+    sourceSearchNoMatch: "No matches",
+    sourceSearchMatch: "Match {current}/{total}: {query}",
+    sourceReplaceDone: "Replaced 1 match. Apply the source text to update the project",
+    sourceReplaceAllDone: "Replaced {count} matches. Apply the source text to update the project",
+    sourceReplaceTooLarge: "Replacement would make the source text too large. Limit: {limit}",
     safeDemoLoaded: "Loaded {count} rights-safe demo phrases",
     audioUpdated: "Audio reference updated; file content was not stored",
     metadataUpdated: "Project metadata updated",
@@ -502,6 +528,13 @@ const elements = {
   insertBlankLine: byId<HTMLButtonElement>("insert-blank-line"),
   insertBlankBeforeCurrent: byId<HTMLButtonElement>("insert-blank-before-current"),
   insertBlankAfterCurrent: byId<HTMLButtonElement>("insert-blank-after-current"),
+  sourceSearchInput: byId<HTMLInputElement>("source-search-input"),
+  sourceReplaceInput: byId<HTMLInputElement>("source-replace-input"),
+  sourceFindPrev: byId<HTMLButtonElement>("source-find-prev"),
+  sourceFindNext: byId<HTMLButtonElement>("source-find-next"),
+  sourceReplaceOne: byId<HTMLButtonElement>("source-replace-one"),
+  sourceReplaceAll: byId<HTMLButtonElement>("source-replace-all"),
+  sourceSearchStatus: byId<HTMLElement>("source-search-status"),
   exportWithLyrics: byId<HTMLButtonElement>("export-with-lyrics"),
   exportTimingOnly: byId<HTMLButtonElement>("export-timing-only"),
   exportWebVtt: byId<HTMLButtonElement>("export-webvtt"),
@@ -965,6 +998,125 @@ const insertSourceLine = (lineText: string, lineIndex: number) => {
 const cursorLineIndex = () => {
   const cursor = elements.lyricsText.selectionEnd ?? elements.lyricsText.value.length;
   return elements.lyricsText.value.slice(0, cursor).split("\n").length - 1;
+};
+
+const setSourceSearchStatus = (key: string, values?: Record<string, string | number>) => {
+  elements.sourceSearchStatus.textContent = text(key, values);
+};
+
+const sourceSearchMatches = (query: string) => {
+  if (!query) return [];
+  const matches: number[] = [];
+  const sourceText = elements.lyricsText.value;
+  let cursor = sourceText.indexOf(query);
+  while (cursor >= 0) {
+    matches.push(cursor);
+    cursor = sourceText.indexOf(query, cursor + Math.max(1, query.length));
+  }
+  return matches;
+};
+
+const selectSourceMatch = (start: number, query: string, matches: number[]) => {
+  elements.lyricsText.focus();
+  elements.lyricsText.setSelectionRange(start, start + query.length);
+  const matchIndex = matches.indexOf(start);
+  setSourceSearchStatus("sourceSearchMatch", {
+    current: matchIndex >= 0 ? matchIndex + 1 : 1,
+    total: matches.length,
+    query
+  });
+};
+
+const findSourceMatch = (direction: 1 | -1) => {
+  const query = elements.sourceSearchInput.value;
+  if (!query) {
+    setSourceSearchStatus("sourceSearchEmpty");
+    elements.sourceSearchInput.focus();
+    return null;
+  }
+
+  const matches = sourceSearchMatches(query);
+  if (!matches.length) {
+    setSourceSearchStatus("sourceSearchNoMatch");
+    return null;
+  }
+
+  const cursor = direction > 0 ? elements.lyricsText.selectionEnd : elements.lyricsText.selectionStart;
+  const match = direction > 0
+    ? matches.find((start) => start >= cursor) ?? matches[0]
+    : [...matches].reverse().find((start) => start < cursor) ?? matches.at(-1);
+
+  if (match === undefined) return null;
+  selectSourceMatch(match, query, matches);
+  return { start: match, query, matches };
+};
+
+const currentSourceMatch = () => {
+  const query = elements.sourceSearchInput.value;
+  if (!query) return null;
+  const start = elements.lyricsText.selectionStart;
+  const end = elements.lyricsText.selectionEnd;
+  if (end - start !== query.length) return null;
+  if (elements.lyricsText.value.slice(start, end) !== query) return null;
+  const matches = sourceSearchMatches(query);
+  return matches.includes(start) ? { start, query, matches } : null;
+};
+
+const replaceSourceRange = (start: number, query: string, replacement: string) => {
+  const sourceText = elements.lyricsText.value;
+  const nextSourceText = `${sourceText.slice(0, start)}${replacement}${sourceText.slice(start + query.length)}`;
+  if (utf8ByteLength(nextSourceText) > MAX_LYRIC_TEXT_BYTES) {
+    setSourceSearchStatus("sourceReplaceTooLarge", { limit: formatBytes(MAX_LYRIC_TEXT_BYTES) });
+    return false;
+  }
+  elements.lyricsText.value = nextSourceText;
+  elements.lyricsText.focus();
+  elements.lyricsText.setSelectionRange(start, start + replacement.length);
+  queueAutoSave();
+  return true;
+};
+
+const replaceSourceMatch = () => {
+  const currentMatch = currentSourceMatch() ?? findSourceMatch(1);
+  if (!currentMatch) return;
+  if (!replaceSourceRange(currentMatch.start, currentMatch.query, elements.sourceReplaceInput.value)) return;
+  setSourceSearchStatus("sourceReplaceDone");
+};
+
+const replaceAllSourceMatches = () => {
+  const query = elements.sourceSearchInput.value;
+  if (!query) {
+    setSourceSearchStatus("sourceSearchEmpty");
+    elements.sourceSearchInput.focus();
+    return;
+  }
+
+  const matches = sourceSearchMatches(query);
+  if (!matches.length) {
+    setSourceSearchStatus("sourceSearchNoMatch");
+    return;
+  }
+
+  const replacement = elements.sourceReplaceInput.value;
+  const sourceText = elements.lyricsText.value;
+  let cursor = 0;
+  const parts: string[] = [];
+  matches.forEach((start) => {
+    parts.push(sourceText.slice(cursor, start), replacement);
+    cursor = start + query.length;
+  });
+  parts.push(sourceText.slice(cursor));
+  const nextSourceText = parts.join("");
+  if (utf8ByteLength(nextSourceText) > MAX_LYRIC_TEXT_BYTES) {
+    setSourceSearchStatus("sourceReplaceTooLarge", { limit: formatBytes(MAX_LYRIC_TEXT_BYTES) });
+    return;
+  }
+
+  elements.lyricsText.value = nextSourceText;
+  elements.lyricsText.focus();
+  elements.lyricsText.setSelectionRange(matches[0], matches[0] + replacement.length);
+  queueAutoSave();
+  setSourceSearchStatus("sourceReplaceAllDone", { count: matches.length });
 };
 
 const setInputValueUnlessFocused = (input: HTMLInputElement | HTMLTextAreaElement, value: string) => {
@@ -2351,6 +2503,18 @@ elements.lyricsText.addEventListener("input", queueAutoSave);
 elements.insertBlankLine.addEventListener("click", insertBlankLineAtCursor);
 elements.insertBlankBeforeCurrent.addEventListener("click", () => insertBlankPhraseNearCurrent("before"));
 elements.insertBlankAfterCurrent.addEventListener("click", () => insertBlankPhraseNearCurrent("after"));
+elements.sourceFindPrev.addEventListener("click", () => findSourceMatch(-1));
+elements.sourceFindNext.addEventListener("click", () => findSourceMatch(1));
+elements.sourceReplaceOne.addEventListener("click", replaceSourceMatch);
+elements.sourceReplaceAll.addEventListener("click", replaceAllSourceMatches);
+elements.sourceSearchInput.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter") return;
+  event.preventDefault();
+  findSourceMatch(event.shiftKey ? -1 : 1);
+});
+elements.sourceSearchInput.addEventListener("input", () => {
+  elements.sourceSearchStatus.textContent = "";
+});
 
 elements.lyricsInput.addEventListener("change", async () => {
   const file = elements.lyricsInput.files?.[0];

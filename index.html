@@ -59,6 +59,26 @@
                   <button id="insert-blank-after-current" type="button" data-i18n="insertBlankAfterCurrent">[blank] after shown phrase</button>
                 </div>
               </div>
+              <div class="source-search">
+                <p class="source-help" data-i18n="sourceSearchHint">Find and replace plain text in the source editor. Regex is not used. Search is case-sensitive.</p>
+                <div class="source-search-grid">
+                  <label>
+                    <span data-i18n="sourceSearchLabel">Find</span>
+                    <input id="source-search-input" type="search" autocomplete="off" />
+                  </label>
+                  <label>
+                    <span data-i18n="sourceReplaceLabel">Replace</span>
+                    <input id="source-replace-input" type="text" autocomplete="off" />
+                  </label>
+                </div>
+                <div class="source-search-actions">
+                  <button id="source-find-prev" type="button" data-i18n="sourceFindPrev">Previous</button>
+                  <button id="source-find-next" type="button" data-i18n="sourceFindNext">Next</button>
+                  <button id="source-replace-one" type="button" data-i18n="sourceReplaceOne">Replace</button>
+                  <button id="source-replace-all" type="button" data-i18n="sourceReplaceAll">Replace all</button>
+                </div>
+                <p id="source-search-status" class="source-search-status" aria-live="polite"></p>
+              </div>
               <div class="source-actions">
                 <button id="load-safe-demo" type="button" data-i18n="loadSafeDemo">Load safe demo</button>
                 <button id="parse-lyrics" type="button" class="solid-action" data-i18n="parseLyrics">Apply source text</button>

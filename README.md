@@ -76,6 +76,7 @@ npm run build
 - Parse lyrics in TextAlive-compatible mode or literal mode. Each non-empty source text line becomes one phrase, so line breaks split lyrics.
 - Add `[blank]`, `[no lyrics]`, `[歌詞なし]`, or `[無表示]` as a source line when an intro, interlude, or outro should clear the lyric display.
 - Insert `[blank]` from the source text editor, including before or after the current phrase while preserving matched timings where possible.
+- Search and replace plain text inside the source text editor before applying it to the project.
 - Show current and next phrase.
 - Stamp current/next phrase with buttons or keyboard shortcuts.
 - Select, move, clear, and evenly place phrase timing markers.

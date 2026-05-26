@@ -1043,6 +1043,7 @@ label span {
 }
 
 .sequence-mode-hint {
+  flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
   color: var(--muted);
@@ -1050,6 +1051,11 @@ label span {
   font-weight: 650;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.sequence-follow-action {
+  flex: 0 0 auto;
+  margin-left: auto;
 }
 
 .selection-edit-bar {
@@ -1681,6 +1687,10 @@ label span {
 
   .sequence-mode-hint {
     white-space: normal;
+  }
+
+  .sequence-follow-action {
+    margin-left: 0;
   }
 
   .details-grid {

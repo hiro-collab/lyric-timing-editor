@@ -60,7 +60,7 @@ Phrase IDs are stable generated IDs such as `phrase-0001`. Source line numbers a
 
 Blank/no-lyric markers such as `[blank]` create an intentional no-display phrase with an empty text value and the original source line number. Exporters keep that source line number for diagnostics and downstream matching.
 
-The Source Text menu is a lightweight lyric editor. It should make common structure edits available there, including one-click insertion of `[blank]`, adding a blank phrase before or after the current phrase, and plain-text find/replace. Reapplying source text should preserve existing phrase timings when phrases can be matched by order or by unchanged text/display mode.
+The Lyric Text menu is a lightweight lyric editor. It should make common structure edits available there, including one-click insertion of `[blank]`, adding a blank phrase before or after the current phrase, and plain-text find/replace. Applying lyric text to the lyric list should preserve existing phrase timings when phrases can be matched by order or by unchanged text/display mode.
 
 ## UI Priorities
 

@@ -10,12 +10,13 @@ It should not depend on Music Effect player DOM, Launch Manager, song packs, or 
 
 - Audio is local browser input only.
 - Audio binaries, local absolute paths, and audio hashes are not saved.
-- Project JSON may include lyric text and should be treated as private working data unless rights are confirmed.
-- Project Save should use a browser-picked writable file when available so repeated saves can overwrite the same local JSON file. Browser security still requires the user to choose the file; unsupported browsers fall back to a download.
+- Work Project JSON may include lyric text and should be treated as private working data unless rights are confirmed. It is for resuming editor work, not for Music Effect import.
+- Work Project Save should use a browser-picked writable file when available so repeated saves can overwrite the same local JSON file. Browser security still requires the user to choose the file; unsupported browsers fall back to a download.
+- Lyric TXT Save should stay grouped with lyric controls, save only the current edited lyric text as UTF-8 `.txt`, and use the same browser-picked writable-file behavior when available.
 - Timing-only export should omit lyric text.
 - Export with lyrics should show a rights confirmation before download.
 - Autosave uses local IndexedDB and may include lyric text, but does not include audio files.
-- Lyric Timing Editor Project JSON is an editor-owned work file. Downstream systems should consume timing exports, not project files.
+- Lyric Timing Editor Work Project JSON is an editor-owned work file. Downstream systems should consume timing exports, not project files.
 - Songle metadata is optional reference metadata. The editor must still work when it is absent or `null`.
 
 ## Timing Model
@@ -61,7 +62,7 @@ Phrase IDs are stable generated IDs such as `phrase-0001`. Source line numbers a
 
 Blank/no-lyric markers such as `[blank]` create an intentional no-display phrase with an empty text value and the original source line number. Exporters keep that source line number for diagnostics and downstream matching.
 
-The Lyric Text menu is a lightweight lyric editor. It should make common structure edits available there, including one-click insertion of `[blank]`, adding a blank phrase before or after the current phrase, and plain-text find/replace. Applying lyric text to the lyric list should preserve existing phrase timings when phrases can be matched by order or by unchanged text/display mode.
+The Lyric Text menu is a lightweight lyric editor. It should make common structure edits available there, including one-click insertion of `[blank]`, adding a blank phrase before or after the current phrase, and plain-text find/replace. Applying lyric text to the lyric list should preserve existing phrase timings when phrases can be matched by order or by unchanged text/display mode. Saving lyric text as `.txt` is a lyric operation, not a Project operation, and must remain visually separated from Project JSON load/save.
 
 ## UI Priorities
 
@@ -70,6 +71,15 @@ The Lyric Text menu is a lightweight lyric editor. It should make common structu
 3. Playback and timing controls are directly below the lyric display.
 4. The sequence bar provides the timing map and selection/edit operations.
 5. The phrase table gives a compact overview of nearby and selected phrases.
+
+## Focus Mode
+
+The editor has two display modes for the current phrase:
+
+- Playback-following mode: the current phrase is derived from the playback/preview time.
+- Manual-selection mode: clicking a phrase row, sequence marker, or keyboard phrase navigation pins that phrase so it can be inspected or edited without jumping during playback.
+
+Manual-selection mode must be visibly distinct in the current phrase card and sequence area. The user can return to playback-following mode with the follow button; clearing the active sequence selection also returns to playback-following mode.
 
 The visual identity should stay green-led, distinct from Songle's magenta and TextAlive's blue.
 
@@ -87,6 +97,6 @@ See `docs/export-formats.md` for the detailed export contract.
 
 - Timing-only export is recommended for public repositories.
 - Lyric-included exports, WebVTT, and LRC require rights confirmation every time.
-- Project save requires a lyric-rights reminder only once per browser session when lyric text is present.
+- Work Project save requires a lyric-rights reminder only once per browser session when lyric text is present.
 - Songle direct metadata lookup must be triggered by an explicit user action and should show a Songle API terms notice.
 - Imported Songle `song.json` is parsed as JSON only. The app should extract known fields, ignore unknown fields, reject oversized files, and never execute imported content.

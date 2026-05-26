@@ -125,6 +125,11 @@ const SAFE_DEMO_LYRIC_TEXT = [
 const i18n: Record<Language, Record<string, string>> = {
   ja: {
     appSubtitle: "ローカル歌詞タイミング編集ツール",
+    actionGroupAudio: "音源",
+    actionGroupLyrics: "歌詞",
+    actionGroupProject: "作業Project",
+    actionGroupExport: "書き出し",
+    actionGroupUtility: "表示",
     loadAudio: "音源を読み込む",
     loadLyrics: "歌詞を読み込む",
     moreSource: "歌詞テキスト",
@@ -145,9 +150,10 @@ const i18n: Record<Language, Record<string, string>> = {
     sourceReplaceAll: "すべて置換",
     loadSafeDemo: "安全なデモ文",
     parseLyrics: "歌詞リストに反映",
+    saveLyricsText: "歌詞TXT保存",
     projectDetails: "プロジェクト詳細",
-    loadProject: "Project読込",
-    saveProject: "Project保存",
+    loadProject: "作業Project読込",
+    saveProject: "作業Project保存",
     exportMenu: "Export",
     exportMusicEffect: "Music Effect v2",
     exportTimingOnly: "Timingのみ",
@@ -171,6 +177,12 @@ const i18n: Record<Language, Record<string, string>> = {
     nextTarget: "Next Target",
     nextPhrase: "次のフレーズ",
     followPlayback: "再生に追従",
+    followPlaybackTitle: "再生位置に合わせて現在フレーズを切り替えます",
+    returnToFollowPlayback: "追従に戻す",
+    followModeActive: "再生に追従中",
+    manualModeActive: "手動選択中",
+    followModeHint: "現在フレーズは再生位置に合わせて切り替わります",
+    manualModeHint: "選んだフレーズを固定表示中です。再生位置では切り替わりません",
     manualSelection: "手動選択",
     play: "再生",
     pause: "停止",
@@ -198,7 +210,7 @@ const i18n: Record<Language, Record<string, string>> = {
     draftAvailableBody: "{time} の自動保存下書きがあります。音源ファイル本体は含まれません。",
     restoreDraft: "復元",
     discardDraft: "破棄",
-    downloadDraft: "Projectとして保存",
+    downloadDraft: "作業Projectとして保存",
     followList: "リスト追従",
     phrases: "フレーズ",
     status: "ステータス",
@@ -225,7 +237,7 @@ const i18n: Record<Language, Record<string, string>> = {
     songUrlHelp: "元動画や配信元のURLです。",
     songleUrlHelp: "Songle登録ページのURLです。metadata取得や照合に使います。",
     textAliveUrlHelp: "TextAlive関連ページがある場合の任意URLです。",
-    notesHelp: "作業メモです。Project JSONだけに保存されます。",
+    notesHelp: "作業メモです。作業用Project JSONだけに保存されます。",
     helpTitle: "Editor Help",
     helpIntro: "ローカル音源とUTF-8の歌詞テキストを読み込み、曲を再生しながら現在/次のフレーズを打刻します。",
     helpRights: "歌詞本文を含むファイルを公開、配布、アップロード、GitHubへコミットする前に、歌詞の権利と配布先の利用条件を確認してください。",
@@ -262,21 +274,27 @@ const i18n: Record<Language, Record<string, string>> = {
     sourceReplaceAllDone: "{count} 件置換しました。「歌詞リストに反映」でProjectに反映できます",
     sourceReplaceTooLarge: "置換後の歌詞テキストが大きすぎます。上限は {limit} です",
     safeDemoLoaded: "権利確認不要のデモ文を {count} フレーズとして読み込みました",
+    followModeEnabled: "再生に追従する表示へ戻しました",
     audioUpdated: "音源参照を更新しました。音源本体は保存しません",
+    lyricsTextSaved: "歌詞テキストを保存しました。次回の歌詞TXT保存は同じファイルへ上書きします",
+    lyricsTextDownloaded: "歌詞テキストをダウンロードしました",
+    lyricsTextSaveCanceled: "歌詞テキスト保存をキャンセルしました",
+    lyricsTextSaveFailed: "歌詞テキストを保存できませんでした。保存先の権限を確認するか、もう一度保存先を選んでください",
+    lyricsTextEmpty: "保存する歌詞テキストがありません",
     metadataUpdated: "プロジェクト詳細を更新しました",
-    projectSaved: "Project JSONを保存しました。次回のProject保存は同じファイルへ上書きします",
-    projectSaveCanceled: "Project保存をキャンセルしました",
-    projectSaveFailed: "Project JSONを保存できませんでした。保存先の権限を確認するか、もう一度保存先を選んでください",
-    projectDownloaded: "Project JSONをダウンロードしました",
+    projectSaved: "作業用Project JSONを保存しました。次回は同じファイルへ上書きします。Music Effect用はExport > Music Effect v2です",
+    projectSaveCanceled: "作業Project保存をキャンセルしました",
+    projectSaveFailed: "作業用Project JSONを保存できませんでした。保存先の権限を確認するか、もう一度保存先を選んでください",
+    projectDownloaded: "作業用Project JSONをダウンロードしました。Music Effect用はExport > Music Effect v2です",
     projectLoaded: "Projectを読み込みました",
     draftRestored: "自動保存下書きを復元しました。音源ファイルは再読み込みしてください",
     draftDiscarded: "自動保存下書きを削除しました",
-    draftDownloaded: "自動保存下書きをProject JSONとしてダウンロードしました",
+    draftDownloaded: "自動保存下書きを作業用Project JSONとしてダウンロードしました",
     draftSaveFailed: "自動保存に失敗しました。ブラウザのストレージ権限と空き容量を確認してください",
     unsupportedProject: "対応していないProject schemaです",
-    invalidProjectFile: "Project JSONを読み込めませんでした。ファイル形式を確認してください",
-    unsafeProjectFile: "Project JSONに、このEditorで安全に扱えない値が含まれていました",
-    projectTooLarge: "Project JSONが大きすぎます。上限は {limit} です",
+    invalidProjectFile: "作業用Project JSONを読み込めませんでした。ファイル形式を確認してください",
+    unsafeProjectFile: "作業用Project JSONに、このEditorで安全に扱えない値が含まれていました",
+    projectTooLarge: "作業用Project JSONが大きすぎます。上限は {limit} です",
     sourceTextTooLarge: "歌詞テキストが大きすぎます。上限は {limit} です",
     tooManyPhrases: "フレーズ数が多すぎます。上限は {limit} 件です",
     unsupportedLyricsFile: "歌詞ファイルは .txt または .lrc のUTF-8テキストだけ読み込めます",
@@ -318,12 +336,17 @@ const i18n: Record<Language, Record<string, string>> = {
     redoEmpty: "やり直せる操作がありません",
     languageChanged: "表示言語を切り替えました",
     rightsConfirm: "この出力には歌詞本文が含まれる場合があります。公開・配布・アップロード・コミット前に権利と配布先の条件を確認してください。続行しますか?",
-    validationExportMissingTiming: "Project保存は可能です。Exportには全フレーズの時刻が必要です。未打刻: {count}件。",
-    exportBlockedMissingTiming: "Exportには全フレーズのstartTimeMsが必要です。未打刻が{count}件あります。選択バーの「未打刻も含めて均一配置」で仮配置するか、打刻後に再度Exportしてください。途中作業はProject保存で保存できます。",
+    validationExportMissingTiming: "作業Project保存は可能です。Exportには全フレーズの時刻が必要です。未打刻: {count}件。",
+    exportBlockedMissingTiming: "Exportには全フレーズのstartTimeMsが必要です。未打刻が{count}件あります。選択バーの「未打刻も含めて均一配置」で仮配置するか、打刻後に再度Exportしてください。途中作業は作業Project保存で保存できます。",
     exportMenuClosed: "Exportメニューを閉じました"
   },
   en: {
     appSubtitle: "Local lyric timing editor",
+    actionGroupAudio: "Audio",
+    actionGroupLyrics: "Lyrics",
+    actionGroupProject: "Work Project",
+    actionGroupExport: "Output",
+    actionGroupUtility: "Tools",
     loadAudio: "Load Audio",
     loadLyrics: "Load Lyrics",
     moreSource: "Lyric Text",
@@ -344,9 +367,10 @@ const i18n: Record<Language, Record<string, string>> = {
     sourceReplaceAll: "Replace all",
     loadSafeDemo: "Safe demo text",
     parseLyrics: "Apply to lyric list",
+    saveLyricsText: "Save Lyric TXT",
     projectDetails: "Project Details",
-    loadProject: "Load Project",
-    saveProject: "Save Project",
+    loadProject: "Load Work Project",
+    saveProject: "Save Work Project",
     exportMenu: "Export",
     exportMusicEffect: "Music Effect v2",
     exportTimingOnly: "Timing only",
@@ -370,6 +394,12 @@ const i18n: Record<Language, Record<string, string>> = {
     nextTarget: "Next Target",
     nextPhrase: "Next Phrase",
     followPlayback: "Follow Playback",
+    followPlaybackTitle: "Switch the current phrase according to playback position",
+    returnToFollowPlayback: "Return to Follow",
+    followModeActive: "Following playback",
+    manualModeActive: "Manual selection",
+    followModeHint: "The current phrase changes with playback position",
+    manualModeHint: "A selected phrase is pinned. Playback position will not change it",
     manualSelection: "Manual Selection",
     play: "Play",
     pause: "Pause",
@@ -397,7 +427,7 @@ const i18n: Record<Language, Record<string, string>> = {
     draftAvailableBody: "A local autosave draft from {time} is available. Audio file content is not included.",
     restoreDraft: "Restore",
     discardDraft: "Discard",
-    downloadDraft: "Save as Project",
+    downloadDraft: "Save as Work Project",
     followList: "Follow List",
     phrases: "Phrases",
     status: "Status",
@@ -424,7 +454,7 @@ const i18n: Record<Language, Record<string, string>> = {
     songUrlHelp: "Original video or source URL.",
     songleUrlHelp: "Songle registration URL for metadata lookup and matching.",
     textAliveUrlHelp: "Optional TextAlive reference URL.",
-    notesHelp: "Working notes saved only in Project JSON.",
+    notesHelp: "Working notes saved only in Work Project JSON.",
     helpTitle: "Editor Help",
     helpIntro: "Load a local audio file and a UTF-8 lyric text file, then stamp the current or next phrase while playing the song.",
     helpRights: "Before publishing, distributing, uploading, or committing files that include lyric text, confirm the lyric rights and the destination terms.",
@@ -461,21 +491,27 @@ const i18n: Record<Language, Record<string, string>> = {
     sourceReplaceAllDone: "Replaced {count} matches. Apply to lyric list to update the project",
     sourceReplaceTooLarge: "Replacement would make the lyric text too large. Limit: {limit}",
     safeDemoLoaded: "Loaded {count} rights-safe demo phrases",
+    followModeEnabled: "Returned to playback-following display",
     audioUpdated: "Audio reference updated; file content was not stored",
+    lyricsTextSaved: "Lyric text saved. The next Save Lyric TXT will overwrite the same file",
+    lyricsTextDownloaded: "Lyric text downloaded",
+    lyricsTextSaveCanceled: "Lyric text save canceled",
+    lyricsTextSaveFailed: "Could not save lyric text. Check file permission or choose the save location again",
+    lyricsTextEmpty: "There is no lyric text to save",
     metadataUpdated: "Project metadata updated",
-    projectSaved: "Project JSON saved. The next Project Save will overwrite the same file",
-    projectSaveCanceled: "Project save canceled",
-    projectSaveFailed: "Could not save Project JSON. Check file permission or choose the save location again",
-    projectDownloaded: "Project JSON downloaded",
+    projectSaved: "Work Project JSON saved. The next save will overwrite the same file. Use Export > Music Effect v2 for Music Effect",
+    projectSaveCanceled: "Work Project save canceled",
+    projectSaveFailed: "Could not save Work Project JSON. Check file permission or choose the save location again",
+    projectDownloaded: "Work Project JSON downloaded. Use Export > Music Effect v2 for Music Effect",
     projectLoaded: "Project loaded",
     draftRestored: "Autosave draft restored. Load the audio file again before playback",
     draftDiscarded: "Autosave draft deleted",
-    draftDownloaded: "Autosave draft downloaded as Project JSON",
+    draftDownloaded: "Autosave draft downloaded as Work Project JSON",
     draftSaveFailed: "Autosave failed. Check browser storage permissions and free space",
     unsupportedProject: "Unsupported project schema",
-    invalidProjectFile: "Could not load Project JSON. Check the file format",
-    unsafeProjectFile: "Project JSON contained values this editor cannot safely handle",
-    projectTooLarge: "Project JSON is too large. Limit: {limit}",
+    invalidProjectFile: "Could not load Work Project JSON. Check the file format",
+    unsafeProjectFile: "Work Project JSON contained values this editor cannot safely handle",
+    projectTooLarge: "Work Project JSON is too large. Limit: {limit}",
     sourceTextTooLarge: "Lyric text is too large. Limit: {limit}",
     tooManyPhrases: "Too many phrases. Limit: {limit}",
     unsupportedLyricsFile: "Lyrics files must be UTF-8 .txt or .lrc text",
@@ -517,8 +553,8 @@ const i18n: Record<Language, Record<string, string>> = {
     redoEmpty: "Nothing to redo",
     languageChanged: "Language switched",
     rightsConfirm: "This file may include lyric text. Confirm rights and destination terms before publishing, distributing, uploading, or committing it. Continue?",
-    validationExportMissingTiming: "Project save is available. Export requires timings for every phrase. Unmarked: {count}.",
-    exportBlockedMissingTiming: "Export requires startTimeMs for every phrase. {count} phrases are unmarked. Use Even with unmarked in the selection bar, or stamp timings before exporting again. Save incomplete work with Project Save.",
+    validationExportMissingTiming: "Work Project save is available. Export requires timings for every phrase. Unmarked: {count}.",
+    exportBlockedMissingTiming: "Export requires startTimeMs for every phrase. {count} phrases are unmarked. Use Even with unmarked in the selection bar, or stamp timings before exporting again. Save incomplete work with Work Project Save.",
     exportMenuClosed: "Export menu closed"
   }
 };
@@ -550,6 +586,7 @@ const elements = {
   parseMode: byId<HTMLSelectElement>("parse-mode"),
   loadSafeDemo: byId<HTMLButtonElement>("load-safe-demo"),
   parseLyrics: byId<HTMLButtonElement>("parse-lyrics"),
+  saveLyricsText: byId<HTMLButtonElement>("save-lyrics-text"),
   lyricsText: byId<HTMLTextAreaElement>("lyrics-text"),
   insertBlankLine: byId<HTMLButtonElement>("insert-blank-line"),
   insertBlankBeforeCurrent: byId<HTMLButtonElement>("insert-blank-before-current"),
@@ -573,6 +610,7 @@ const elements = {
   projectDetails: byId<HTMLButtonElement>("project-details"),
   projectDetailsDialog: byId<HTMLDialogElement>("project-details-dialog"),
   focusModeLabel: byId<HTMLElement>("focus-mode-label"),
+  currentPhraseCard: byId<HTMLElement>("current-phrase-card"),
   followPlayback: byId<HTMLButtonElement>("follow-playback"),
   currentPhraseText: byId<HTMLElement>("current-phrase-text"),
   currentPhraseId: byId<HTMLElement>("current-phrase-id"),
@@ -606,6 +644,8 @@ const elements = {
   selectionEven: byId<HTMLButtonElement>("selection-even"),
   selectionClearTiming: byId<HTMLButtonElement>("selection-clear-timing"),
   selectionClear: byId<HTMLButtonElement>("selection-clear"),
+  sequenceModeLabel: byId<HTMLElement>("sequence-mode-label"),
+  sequenceModeHint: byId<HTMLElement>("sequence-mode-hint"),
   sequenceBar: byId<HTMLElement>("sequence-bar"),
   phraseTable: byId<HTMLElement>("phrase-table"),
   phraseTableNote: byId<HTMLElement>("phrase-table-note"),
@@ -644,6 +684,7 @@ let pendingDraft: AutoSaveDraft | null = null;
 let availableDraft: AutoSaveDraft | null = null;
 let lastAutoSaveKey = "";
 let projectSaveFileHandle: FileSystemFileHandleLike | null = null;
+let lyricsTextSaveFileHandle: FileSystemFileHandleLike | null = null;
 const undoStack: Snapshot[] = [];
 const redoStack: Snapshot[] = [];
 
@@ -1283,6 +1324,8 @@ const restoreAutoSaveDraft = () => {
   selectedPhraseIndexes = new Set(draft.selectedPhraseIndexes.filter(isValidPhraseIndex));
   selectionAnchorIndex = draft.selectionAnchorIndex;
   elements.lyricsText.value = draft.sourceText || project.lines.map((line) => line.rawText).join("\n");
+  lyricsTextSaveFileHandle = null;
+  projectSaveFileHandle = null;
   previewTimeMs = 0;
   undoStack.length = 0;
   redoStack.length = 0;
@@ -1692,8 +1735,18 @@ const renderPhraseStage = () => {
   const nextIndex = getNextPhraseIndex();
   const currentPhrase = currentIndex >= 0 ? project.phrases[currentIndex] : undefined;
   const nextPhrase = nextIndex >= 0 && nextIndex !== currentIndex ? project.phrases[nextIndex] : undefined;
+  const isFollowMode = focusMode === "follow";
 
-  elements.focusModeLabel.textContent = focusMode === "follow" ? text("followPlayback") : text("manualSelection");
+  elements.currentPhraseCard.dataset.focusMode = focusMode;
+  elements.focusModeLabel.textContent = isFollowMode ? text("followPlayback") : text("manualSelection");
+  elements.focusModeLabel.classList.toggle("is-manual-mode", !isFollowMode);
+  elements.followPlayback.classList.toggle("is-active", isFollowMode);
+  elements.followPlayback.setAttribute("aria-pressed", isFollowMode ? "true" : "false");
+  elements.followPlayback.title = text("followPlaybackTitle");
+  elements.followPlayback.textContent = text(isFollowMode ? "followPlayback" : "returnToFollowPlayback");
+  elements.sequenceModeLabel.textContent = text(isFollowMode ? "followModeActive" : "manualModeActive");
+  elements.sequenceModeLabel.dataset.focusMode = focusMode;
+  elements.sequenceModeHint.textContent = text(isFollowMode ? "followModeHint" : "manualModeHint");
   elements.currentPhraseText.textContent = currentPhrase?.text ?? text("noPhraseLoaded");
   elements.currentPhraseText.classList.toggle("is-blank-display", currentPhrase?.displayMode === "blank");
   elements.currentPhraseText.setAttribute("aria-label", currentPhrase?.displayMode === "blank" ? text("blankPhraseLabel") : "");
@@ -1842,7 +1895,8 @@ const renderSequenceBar = () => {
   elements.sequenceBar.setAttribute("aria-valuemax", String(durationMs));
   elements.sequenceBar.setAttribute("aria-valuenow", String(Math.min(playbackMs, durationMs)));
   elements.sequenceBar.setAttribute("aria-valuetext", formatClock(playbackMs));
-  elements.sequenceBar.title = text("sequenceSeekHint");
+  elements.sequenceBar.dataset.focusMode = focusMode;
+  elements.sequenceBar.title = `${text("sequenceSeekHint")} ${text(focusMode === "follow" ? "followModeHint" : "manualModeHint")}`;
 
   if (sequenceDragState?.type === "range") {
     const startPercent = Math.min(
@@ -1932,11 +1986,16 @@ const canSaveToPickedFile = () => (
 
 const projectJsonText = () => `${JSON.stringify(project, null, 2)}\n`;
 
+const lyricsTextFileText = () => {
+  const normalized = elements.lyricsText.value.replace(/\r\n?/g, "\n");
+  return normalized.endsWith("\n") ? normalized : `${normalized}\n`;
+};
+
 const pickProjectSaveFile = (fileName: string) => window.showSaveFilePicker?.({
   suggestedName: fileName,
   types: [
     {
-      description: "Lyric Timing Editor Project JSON",
+      description: "Lyric Timing Editor Work Project JSON",
       accept: {
         "application/json": [".json"]
       }
@@ -1944,10 +2003,22 @@ const pickProjectSaveFile = (fileName: string) => window.showSaveFilePicker?.({
   ]
 });
 
-const writeProjectFile = async (handle: FileSystemFileHandleLike, jsonText: string) => {
+const pickLyricsTextSaveFile = (fileName: string) => window.showSaveFilePicker?.({
+  suggestedName: fileName,
+  types: [
+    {
+      description: "UTF-8 Lyric Text",
+      accept: {
+        "text/plain": [".txt"]
+      }
+    }
+  ]
+});
+
+const writePickedTextFile = async (handle: FileSystemFileHandleLike, value: string, type: string) => {
   const writable = await handle.createWritable();
   try {
-    await writable.write(new Blob([jsonText], { type: "application/json;charset=utf-8" }));
+    await writable.write(new Blob([value], { type }));
   } finally {
     await writable.close();
   }
@@ -2045,6 +2116,7 @@ const loadSafeDemoLyrics = () => {
   if ((hasCustomSource || projectHasAnyTiming()) && !window.confirm(text("replaceSourceConfirm"))) return;
   elements.parseMode.value = "textalive";
   elements.lyricsText.value = SAFE_DEMO_LYRIC_TEXT;
+  lyricsTextSaveFileHandle = null;
   parseLyrics();
   setStatus("safeDemoLoaded", { count: project.phrases.length });
 };
@@ -2067,6 +2139,15 @@ const selectPhrase = (index: number, mode: FocusMode = "manual") => {
   if (nextIndex < 0) return;
   selectedPhraseIndex = nextIndex;
   focusMode = mode;
+  render();
+};
+
+const returnToFollowMode = (statusKey: string | null = null) => {
+  focusMode = "follow";
+  if (statusKey) {
+    setStatus(statusKey);
+    return;
+  }
   render();
 };
 
@@ -2593,6 +2674,7 @@ elements.lyricsInput.addEventListener("change", async () => {
       invalidStatus: "unsupportedLyricsFile"
     })) return;
     elements.lyricsText.value = await file.text();
+    lyricsTextSaveFileHandle = null;
     parseLyrics();
   } catch {
     setStatus("fileReadFailed");
@@ -2644,6 +2726,10 @@ elements.saveProject.addEventListener("click", () => {
   void saveProject();
 });
 
+elements.saveLyricsText.addEventListener("click", () => {
+  void saveLyricsText();
+});
+
 const saveProject = async () => {
   if (!requireLyricsRightsConfirmation()) return;
   applyMetadata();
@@ -2663,7 +2749,7 @@ const saveProject = async () => {
       setStatus("projectSaveCanceled");
       return;
     }
-    await writeProjectFile(projectSaveFileHandle, jsonText);
+    await writePickedTextFile(projectSaveFileHandle, jsonText, "application/json;charset=utf-8");
     setStatus("projectSaved");
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
@@ -2672,6 +2758,44 @@ const saveProject = async () => {
     }
     projectSaveFileHandle = null;
     setStatus("projectSaveFailed");
+  }
+};
+
+const saveLyricsText = async () => {
+  const fileText = lyricsTextFileText();
+  if (!fileText.trim()) {
+    setStatus("lyricsTextEmpty");
+    return;
+  }
+  if (utf8ByteLength(fileText) > MAX_LYRIC_TEXT_BYTES) {
+    setStatus("sourceTextTooLarge", { limit: formatBytes(MAX_LYRIC_TEXT_BYTES) });
+    return;
+  }
+  if (!requireLyricsRightsConfirmation()) return;
+  applyMetadata();
+  const fileName = `${fileBaseName()}.lyrics.txt`;
+
+  if (!canSaveToPickedFile()) {
+    downloadText(fileName, fileText, "text/plain;charset=utf-8");
+    setStatus("lyricsTextDownloaded");
+    return;
+  }
+
+  try {
+    lyricsTextSaveFileHandle = lyricsTextSaveFileHandle ?? await pickLyricsTextSaveFile(fileName) ?? null;
+    if (!lyricsTextSaveFileHandle) {
+      setStatus("lyricsTextSaveCanceled");
+      return;
+    }
+    await writePickedTextFile(lyricsTextSaveFileHandle, fileText, "text/plain;charset=utf-8");
+    setStatus("lyricsTextSaved");
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      setStatus("lyricsTextSaveCanceled");
+      return;
+    }
+    lyricsTextSaveFileHandle = null;
+    setStatus("lyricsTextSaveFailed");
   }
 };
 
@@ -2713,6 +2837,7 @@ elements.projectInput.addEventListener("change", async () => {
   }
   project = loaded;
   projectSaveFileHandle = null;
+  lyricsTextSaveFileHandle = null;
   selectedPhraseIndex = 0;
   focusMode = "follow";
   clearSelection();
@@ -2782,12 +2907,10 @@ elements.languageToggle.addEventListener("click", () => {
   setStatus("languageChanged");
 });
 elements.followPlayback.addEventListener("click", () => {
-  focusMode = "follow";
-  render();
+  returnToFollowMode("followModeEnabled");
 });
 elements.followList.addEventListener("click", () => {
-  focusMode = "follow";
-  render();
+  returnToFollowMode("followModeEnabled");
 });
 elements.playToggle.addEventListener("click", () => {
   void togglePlayback();
@@ -2806,7 +2929,7 @@ elements.selectionEven.addEventListener("click", placeSelectedEvenly);
 elements.selectionClearTiming.addEventListener("click", clearSelectionTiming);
 elements.selectionClear.addEventListener("click", () => {
   clearSelection();
-  render();
+  returnToFollowMode("followModeEnabled");
 });
 
 elements.seekBar.addEventListener("input", () => {

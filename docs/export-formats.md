@@ -16,9 +16,9 @@ Adding a new `displayMode` value is not treated as a casual additive change for 
 
 - All exported text files use UTF-8 without BOM by default.
 - Export files are treated as completed timing outputs. If any phrase has no start time, export is blocked.
-- Incomplete work should be saved as a Lyric Timing Editor Project JSON instead.
+- Incomplete work should be saved as a Lyric Timing Editor Work Project JSON instead.
 - The editor may offer an explicit "fill unmarked phrases" edit action before export. That action updates the project and can be undone with Undo or Ctrl+Z.
-- Exported notes are omitted. Working notes stay in Project JSON only.
+- Exported notes are omitted. Working notes stay in Work Project JSON only.
 - Real lyric text, audio files, and real-song lyric-included exports should not be committed or published without rights confirmation.
 - Phrase ranges are contiguous. For phrase N, exported `endTimeMs` is normally phrase N+1 `startTimeMs`; the last phrase ends at `durationMs` when available.
 
@@ -106,7 +106,7 @@ Timing-only export omits lyric text:
 
 Downstream systems should join timing-only phrases with their own lyric lines by `index` or lyric order. This is the recommended format for public repositories when lyric rights are not confirmed.
 
-"Timing-only" means lyric text is omitted. It does not mean timings are optional; every exported phrase still needs `startTimeMs` and `endTimeMs`. Save unfinished work as Project JSON, or use the editor's explicit fill action to create temporary evenly spaced timings before export.
+"Timing-only" means lyric text is omitted. It does not mean timings are optional; every exported phrase still needs `startTimeMs` and `endTimeMs`. Save unfinished work as Work Project JSON, or use the editor's explicit fill action to create temporary evenly spaced timings before export.
 
 Timing-only blank phrases still use `displayMode: "blank"`, omit `text`, and should keep the original source line number:
 
@@ -176,7 +176,7 @@ Music Effect currently uses seconds internally for `LyricCue`. A v2 importer sho
 - Join with song-pack lyric lines when `includesLyrics` is `false`.
 - Treat `slug`, `songle`, and `sourceLine` as optional metadata for validation, diagnostics, or matching.
 - Warn, but do not crash, when optional metadata is missing.
-- Avoid depending on Lyric Timing Editor Project JSON.
+- Avoid depending on Lyric Timing Editor Work Project JSON.
 
 ## WebVTT
 

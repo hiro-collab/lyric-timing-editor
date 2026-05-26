@@ -43,6 +43,24 @@ The repository currently has no explicit open-source license. Treat that as a pe
 - If the worktree is dirty at thread start, identify whether the changes belong to another thread before editing.
 - Current security review work can stay in this worktree because it is not expected to run in parallel with feature implementation.
 
+## Music Effect Installer Coordination
+
+Observed on 2026-05-27: a browser download such as `lyric-timing-editor.lyric-timing-project (4).json` can be selected in Music Effect's Lyrics Data Installer timing JSON field. The immediate failure is not the `(4)` suffix itself; it is that Work Project JSON uses `schema: "lyric-timing-editor.project.v1"` while the installer expects `schema: "music-effect.lyrics-timing.v2"`.
+
+Lyric Timing Editor side mitigation:
+
+- UI labels should say Work Project for editor save/load.
+- Save status and README should remind users to use `Export` -> `Music Effect v2` for Music Effect.
+- Music Effect v2 export should continue to prefer `slug` for stable filenames; Chrome's `(1)` download suffix should not matter when `slug` is present.
+
+Recommended Music Effect side mitigation:
+
+- Detect `schema: "lyric-timing-editor.project.v1"` on both client-side file selection and server-side install, then show a friendly message: this is a Work Project JSON; choose `Export` -> `Music Effect v2` in Lyric Timing Editor.
+- On timing file input change, clear or mark the previous valid timing state as checking before async `file.text()` finishes, so a stale valid file cannot be submitted while a new invalid file is still being inspected.
+- If a valid v2 export has no `slug` and the selected filename contains a browser duplicate suffix like ` (1)`, consider warning that the inferred install filename may be unstable and recommend entering the installer save name explicitly.
+
+This is a compatible workflow/UI hardening item, not an export schema change.
+
 ## GitHub Pages
 
 The repository includes `.github/workflows/pages.yml`.

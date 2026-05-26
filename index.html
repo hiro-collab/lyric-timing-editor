@@ -23,107 +23,126 @@
         </div>
 
         <nav class="topbar-actions" aria-label="Editor actions">
-          <label class="file-action">
-            <span class="control-icon audio-icon" aria-hidden="true"></span>
-            <span data-i18n="loadAudio">Load Audio</span>
-            <input id="audio-input" type="file" accept="audio/*" />
-          </label>
-          <label class="file-action">
-            <span class="control-icon document-icon" aria-hidden="true"></span>
-            <span data-i18n="loadLyrics">Load Lyrics</span>
-            <input id="lyrics-input" type="file" accept="text/plain,.txt,.lrc" />
-          </label>
-          <details class="menu-panel" id="source-menu">
-            <summary>
-              <span class="control-icon source-icon" aria-hidden="true"></span>
-              <span data-i18n="moreSource">Lyric Text</span>
-              <span class="dropdown-caret" aria-hidden="true"></span>
-            </summary>
-            <div class="menu-popover source-popover">
-              <label>
-                <span data-i18n="parseMode">Parse mode</span>
-                <select id="parse-mode">
-                  <option value="textalive" data-i18n="parseTextAlive">TextAlive compatible</option>
-                  <option value="literal" data-i18n="parseLiteral">Literal</option>
-                </select>
-              </label>
-              <label>
-                <span data-i18n="pasteLyrics">Lyric text</span>
-                <textarea id="lyrics-text" class="lyrics-text" spellcheck="false"></textarea>
-              </label>
-              <div class="source-tools">
-                <p class="source-help" data-i18n="blankSourceHint">Each newline splits lyrics into phrases. Blank lines are section breaks. Use [blank] as a line when the lyric display should be empty.</p>
-                <div class="source-tool-actions">
-                  <button id="insert-blank-line" type="button" data-i18n="insertBlankLine">Insert [blank] at cursor</button>
-                  <button id="insert-blank-before-current" type="button" data-i18n="insertBlankBeforeCurrent">[blank] before shown phrase</button>
-                  <button id="insert-blank-after-current" type="button" data-i18n="insertBlankAfterCurrent">[blank] after shown phrase</button>
+          <div class="action-group action-group-audio">
+            <span class="action-group-label" data-i18n="actionGroupAudio">Audio</span>
+            <label class="file-action">
+              <span class="control-icon audio-icon" aria-hidden="true"></span>
+              <span data-i18n="loadAudio">Load Audio</span>
+              <input id="audio-input" type="file" accept="audio/*" />
+            </label>
+          </div>
+          <div class="action-group action-group-lyrics">
+            <span class="action-group-label" data-i18n="actionGroupLyrics">Lyrics</span>
+            <label class="file-action">
+              <span class="control-icon document-icon" aria-hidden="true"></span>
+              <span data-i18n="loadLyrics">Load Lyrics</span>
+              <input id="lyrics-input" type="file" accept="text/plain,.txt,.lrc" />
+            </label>
+            <details class="menu-panel" id="source-menu">
+              <summary>
+                <span class="control-icon source-icon" aria-hidden="true"></span>
+                <span data-i18n="moreSource">Lyric Text</span>
+                <span class="dropdown-caret" aria-hidden="true"></span>
+              </summary>
+              <div class="menu-popover source-popover">
+                <label>
+                  <span data-i18n="parseMode">Parse mode</span>
+                  <select id="parse-mode">
+                    <option value="textalive" data-i18n="parseTextAlive">TextAlive compatible</option>
+                    <option value="literal" data-i18n="parseLiteral">Literal</option>
+                  </select>
+                </label>
+                <label>
+                  <span data-i18n="pasteLyrics">Lyric text</span>
+                  <textarea id="lyrics-text" class="lyrics-text" spellcheck="false"></textarea>
+                </label>
+                <div class="source-tools">
+                  <p class="source-help" data-i18n="blankSourceHint">Each newline splits lyrics into phrases. Blank lines are section breaks. Use [blank] as a line when the lyric display should be empty.</p>
+                  <div class="source-tool-actions">
+                    <button id="insert-blank-line" type="button" data-i18n="insertBlankLine">Insert [blank] at cursor</button>
+                    <button id="insert-blank-before-current" type="button" data-i18n="insertBlankBeforeCurrent">[blank] before shown phrase</button>
+                    <button id="insert-blank-after-current" type="button" data-i18n="insertBlankAfterCurrent">[blank] after shown phrase</button>
+                  </div>
+                </div>
+                <div class="source-search">
+                  <p class="source-help" data-i18n="sourceSearchHint">Find and replace plain text in the lyric text editor. Regex is not used. Search is case-sensitive.</p>
+                  <div class="source-search-grid">
+                    <label>
+                      <span data-i18n="sourceSearchLabel">Find</span>
+                      <input id="source-search-input" type="search" autocomplete="off" />
+                    </label>
+                    <label>
+                      <span data-i18n="sourceReplaceLabel">Replace</span>
+                      <input id="source-replace-input" type="text" autocomplete="off" />
+                    </label>
+                  </div>
+                  <div class="source-search-actions">
+                    <button id="source-find-prev" type="button" data-i18n="sourceFindPrev">Previous</button>
+                    <button id="source-find-next" type="button" data-i18n="sourceFindNext">Next</button>
+                    <button id="source-replace-one" type="button" data-i18n="sourceReplaceOne">Replace</button>
+                    <button id="source-replace-all" type="button" data-i18n="sourceReplaceAll">Replace all</button>
+                  </div>
+                  <p id="source-search-status" class="source-search-status" aria-live="polite"></p>
+                </div>
+                <div class="source-actions">
+                  <button id="load-safe-demo" type="button" data-i18n="loadSafeDemo">Load safe demo</button>
+                  <button id="parse-lyrics" type="button" class="solid-action" data-i18n="parseLyrics">Apply to lyric list</button>
                 </div>
               </div>
-              <div class="source-search">
-                <p class="source-help" data-i18n="sourceSearchHint">Find and replace plain text in the lyric text editor. Regex is not used. Search is case-sensitive.</p>
-                <div class="source-search-grid">
-                  <label>
-                    <span data-i18n="sourceSearchLabel">Find</span>
-                    <input id="source-search-input" type="search" autocomplete="off" />
-                  </label>
-                  <label>
-                    <span data-i18n="sourceReplaceLabel">Replace</span>
-                    <input id="source-replace-input" type="text" autocomplete="off" />
-                  </label>
-                </div>
-                <div class="source-search-actions">
-                  <button id="source-find-prev" type="button" data-i18n="sourceFindPrev">Previous</button>
-                  <button id="source-find-next" type="button" data-i18n="sourceFindNext">Next</button>
-                  <button id="source-replace-one" type="button" data-i18n="sourceReplaceOne">Replace</button>
-                  <button id="source-replace-all" type="button" data-i18n="sourceReplaceAll">Replace all</button>
-                </div>
-                <p id="source-search-status" class="source-search-status" aria-live="polite"></p>
+            </details>
+            <button id="save-lyrics-text" type="button">
+              <span class="control-icon document-icon" aria-hidden="true"></span>
+              <span data-i18n="saveLyricsText">Save Lyric TXT</span>
+            </button>
+          </div>
+          <div class="action-group action-group-project">
+            <span class="action-group-label" data-i18n="actionGroupProject">Work Project</span>
+            <button id="project-details" type="button">
+              <span class="control-icon details-icon" aria-hidden="true"></span>
+              <span data-i18n="projectDetails">Project Details</span>
+            </button>
+            <label class="file-action">
+              <span class="control-icon project-load-icon" aria-hidden="true"></span>
+              <span data-i18n="loadProject">Load Work Project</span>
+              <input id="project-input" type="file" accept="application/json,.json" />
+            </label>
+            <button id="save-project" type="button">
+              <span class="control-icon save-icon" aria-hidden="true"></span>
+              <span data-i18n="saveProject">Save Work Project</span>
+            </button>
+          </div>
+          <div class="action-group action-group-export">
+            <span class="action-group-label" data-i18n="actionGroupExport">Export</span>
+            <details class="menu-panel" id="export-menu">
+              <summary>
+                <span class="control-icon export-icon" aria-hidden="true"></span>
+                <span data-i18n="exportMenu">Export</span>
+                <span class="dropdown-caret" aria-hidden="true"></span>
+              </summary>
+              <div class="menu-popover export-popover">
+                <section class="export-group">
+                  <h3 data-i18n="exportMusicEffect">Music Effect v2</h3>
+                  <button id="export-timing-only" type="button" data-i18n="exportTimingOnly">Timing only</button>
+                  <p data-i18n="exportTimingOnlyHint">Recommended for public repos</p>
+                  <button id="export-with-lyrics" type="button" data-i18n="exportWithLyrics">With lyrics</button>
+                  <p data-i18n="exportWithLyricsHint">Requires lyric rights confirmation</p>
+                </section>
+                <section class="export-group">
+                  <h3 data-i18n="exportGeneralFormats">General formats</h3>
+                  <button id="export-webvtt" type="button" data-i18n="exportWebVtt">WebVTT</button>
+                  <p data-i18n="exportLyricsRequiredHint">Requires lyric rights confirmation</p>
+                  <button id="export-lrc" type="button" data-i18n="exportLrc">LRC</button>
+                  <p data-i18n="exportLyricsRequiredHint">Requires lyric rights confirmation</p>
+                </section>
               </div>
-              <div class="source-actions">
-                <button id="load-safe-demo" type="button" data-i18n="loadSafeDemo">Load safe demo</button>
-                <button id="parse-lyrics" type="button" class="solid-action" data-i18n="parseLyrics">Apply to lyric list</button>
-              </div>
-            </div>
-          </details>
-          <button id="project-details" type="button">
-            <span class="control-icon details-icon" aria-hidden="true"></span>
-            <span data-i18n="projectDetails">Project Details</span>
-          </button>
-          <label class="file-action">
-            <span class="control-icon project-load-icon" aria-hidden="true"></span>
-            <span data-i18n="loadProject">Load Project</span>
-            <input id="project-input" type="file" accept="application/json,.json" />
-          </label>
-          <button id="save-project" type="button">
-            <span class="control-icon save-icon" aria-hidden="true"></span>
-            <span data-i18n="saveProject">Save Project</span>
-          </button>
-          <details class="menu-panel" id="export-menu">
-            <summary>
-              <span class="control-icon export-icon" aria-hidden="true"></span>
-              <span data-i18n="exportMenu">Export</span>
-              <span class="dropdown-caret" aria-hidden="true"></span>
-            </summary>
-            <div class="menu-popover export-popover">
-              <section class="export-group">
-                <h3 data-i18n="exportMusicEffect">Music Effect v2</h3>
-                <button id="export-timing-only" type="button" data-i18n="exportTimingOnly">Timing only</button>
-                <p data-i18n="exportTimingOnlyHint">Recommended for public repos</p>
-                <button id="export-with-lyrics" type="button" data-i18n="exportWithLyrics">With lyrics</button>
-                <p data-i18n="exportWithLyricsHint">Requires lyric rights confirmation</p>
-              </section>
-              <section class="export-group">
-                <h3 data-i18n="exportGeneralFormats">General formats</h3>
-                <button id="export-webvtt" type="button" data-i18n="exportWebVtt">WebVTT</button>
-                <p data-i18n="exportLyricsRequiredHint">Requires lyric rights confirmation</p>
-                <button id="export-lrc" type="button" data-i18n="exportLrc">LRC</button>
-                <p data-i18n="exportLyricsRequiredHint">Requires lyric rights confirmation</p>
-              </section>
-            </div>
-          </details>
-          <button id="language-toggle" type="button" class="ghost-action" aria-label="Language">JA / EN</button>
-          <button id="clear-local-data" type="button" class="ghost-action" data-i18n="clearLocalData">Clear Draft</button>
-          <button id="help-open" type="button" class="ghost-action" data-i18n="help">Help</button>
+            </details>
+          </div>
+          <div class="action-group action-group-utility">
+            <span class="action-group-label" data-i18n="actionGroupUtility">Tools</span>
+            <button id="language-toggle" type="button" class="ghost-action" aria-label="Language">JA / EN</button>
+            <button id="clear-local-data" type="button" class="ghost-action" data-i18n="clearLocalData">Clear Draft</button>
+            <button id="help-open" type="button" class="ghost-action" data-i18n="help">Help</button>
+          </div>
         </nav>
       </header>
 
@@ -134,7 +153,7 @@
         </div>
         <div class="draft-actions">
           <button id="restore-draft" type="button" class="solid-action" data-i18n="restoreDraft">Restore</button>
-          <button id="download-draft" type="button" data-i18n="downloadDraft">Save as Project</button>
+          <button id="download-draft" type="button" data-i18n="downloadDraft">Save as Work Project</button>
           <button id="discard-draft" type="button" data-i18n="discardDraft">Discard</button>
         </div>
       </section>
@@ -166,7 +185,7 @@
 
       <section class="lyric-stage" aria-label="Lyric timing stage">
         <div class="phrase-stage">
-          <section class="current-phrase-card" aria-labelledby="current-phrase-heading">
+          <section id="current-phrase-card" class="current-phrase-card" aria-labelledby="current-phrase-heading">
             <div class="stage-heading">
               <div>
                 <span class="eyebrow" id="focus-mode-label">Follow Playback</span>
@@ -226,6 +245,10 @@
         </div>
 
         <div class="sequence-wrap" aria-label="Sequence overview">
+          <div class="sequence-mode-row">
+            <span id="sequence-mode-label" class="sequence-mode-pill">Follow mode</span>
+            <span id="sequence-mode-hint" class="sequence-mode-hint">Current phrase follows playback.</span>
+          </div>
           <div id="selection-edit-bar" class="selection-edit-bar" hidden>
             <div class="selection-state">
               <p id="selection-summary">Selection: 0</p>
@@ -312,7 +335,7 @@
             <label class="full-span">
               <span data-i18n="notes">Notes</span>
               <textarea id="notes-input" rows="4"></textarea>
-              <p class="field-help" data-i18n="notesHelp">Working notes saved only in Project JSON.</p>
+              <p class="field-help" data-i18n="notesHelp">Working notes saved only in Work Project JSON.</p>
             </label>
           </div>
         </form>

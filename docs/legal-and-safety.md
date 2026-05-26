@@ -6,7 +6,7 @@ Lyric Timing Editor is a local, file-based editor. It is not a replacement for T
 
 - Audio files are used only for browser playback.
 - Audio binaries are not uploaded, bundled, analyzed, saved into Project JSON, or included in exports.
-- Lyric text may be present in pasted source text, Project JSON, lyric-included exports, WebVTT, LRC, and local IndexedDB autosave.
+- Lyric text may be present in pasted source text, standalone Lyric TXT saves, Work Project JSON, lyric-included exports, WebVTT, LRC, and local IndexedDB autosave.
 - Timing-only Music Effect v2 export omits lyric text.
 
 ## Rights-Sensitive Files
@@ -15,7 +15,8 @@ Do not publish, distribute, upload, or commit the following unless rights and de
 
 - real audio files
 - real lyric text files
-- Project JSON containing copyrighted lyrics
+- standalone Lyric TXT saves containing copyrighted lyrics
+- Work Project JSON containing copyrighted lyrics
 - Music Effect v2 exports with `includesLyrics: true`
 - WebVTT and LRC exports containing lyric text
 - any derived file that reconstructs or republishes lyric text

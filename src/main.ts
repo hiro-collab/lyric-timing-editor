@@ -34,6 +34,10 @@ type AutoSaveDraft = Snapshot & {
   savedAt: string;
   sourceText: string;
 };
+type ParseLyricsOptions = {
+  selectPhraseIndex?: number;
+  statusKey?: string;
+};
 type AutoSaveStatus = "idle" | "pending" | "saving" | "saved" | "error" | "unavailable";
 type TrackGeometry = {
   left: number;
@@ -87,6 +91,7 @@ const MAX_LYRIC_PHRASES = 5_000;
 const LYRIC_FILE_EXTENSIONS = [".txt", ".lrc"];
 const PROJECT_FILE_EXTENSIONS = [".json"];
 const AUDIO_FILE_EXTENSIONS = [".aac", ".flac", ".m4a", ".mp3", ".ogg", ".wav"];
+const BLANK_SOURCE_MARKER = "[blank]";
 const SAFE_DEMO_LYRIC_TEXT = [
   "# synthetic demo",
   "\\#hash marker stays lyric text",
@@ -106,6 +111,10 @@ const i18n: Record<Language, Record<string, string>> = {
     parseTextAlive: "TextAlive互換",
     parseLiteral: "そのまま",
     pasteLyrics: "元テキスト",
+    blankSourceHint: "空白行は区切りです。無表示区間は [blank] を1行として入れます。現在の前/後に追加すると打刻はできるだけ保持されます。",
+    insertBlankLine: "[blank]を挿入",
+    insertBlankBeforeCurrent: "現在の前に無表示",
+    insertBlankAfterCurrent: "現在の後に無表示",
     loadSafeDemo: "安全なデモ文",
     parseLyrics: "元テキストを反映",
     projectDetails: "プロジェクト詳細",
@@ -215,6 +224,9 @@ const i18n: Record<Language, Record<string, string>> = {
     ready: "Ready",
     noValidationIssues: "検証エラーはありません",
     lyricsParsed: "歌詞を {count} フレーズとして読み込みました",
+    lyricsParsedWithTiming: "歌詞を {count} フレーズとして読み込み、{kept} 件の打刻を保持しました",
+    blankLineInserted: "[blank]を元テキストに挿入しました。反映ボタンでフレーズに追加できます",
+    blankPhraseInserted: "無表示フレーズを追加し、{kept} 件の打刻を保持しました",
     safeDemoLoaded: "権利確認不要のデモ文を {count} フレーズとして読み込みました",
     audioUpdated: "音源参照を更新しました。音源本体は保存しません",
     metadataUpdated: "プロジェクト詳細を更新しました",
@@ -256,7 +268,7 @@ const i18n: Record<Language, Record<string, string>> = {
     projectLoadCanceled: "Projectの読み込みを中止しました。JSONファイルの時刻を手動修正してから読み込んでください",
     projectLoadedWithTimingFixes: "Projectを読み込み、問題のある {count} 件の時刻を未打刻に戻しました",
     replaceSourceConfirm: "現在の元テキストや打刻をデモ文で置き換えます。続けますか？",
-    reparseLosesTimingConfirm: "解析モードを変更して元テキストを再解析すると、現在の打刻はリセットされます。続けますか？",
+    reparseLosesTimingConfirm: "解析モードを変更して元テキストを再解析します。対応できる打刻は保持しますが、対応できない行は未打刻になることがあります。続けますか？",
     parseModeKept: "解析モードの変更を取り消しました",
     noCurrentPhrase: "打刻する現在フレーズがありません",
     noNextTarget: "打刻する次フレーズがありません",
@@ -282,6 +294,10 @@ const i18n: Record<Language, Record<string, string>> = {
     parseTextAlive: "TextAlive compatible",
     parseLiteral: "Literal",
     pasteLyrics: "Source text",
+    blankSourceHint: "Blank source lines are section breaks. Add [blank] as its own line when the lyric display should be empty. Before/after actions preserve matched timings where possible.",
+    insertBlankLine: "Insert [blank]",
+    insertBlankBeforeCurrent: "Blank before current",
+    insertBlankAfterCurrent: "Blank after current",
     loadSafeDemo: "Safe demo text",
     parseLyrics: "Apply source text",
     projectDetails: "Project Details",
@@ -391,6 +407,9 @@ const i18n: Record<Language, Record<string, string>> = {
     ready: "Ready",
     noValidationIssues: "No validation issues",
     lyricsParsed: "Loaded {count} lyric phrases",
+    lyricsParsedWithTiming: "Loaded {count} lyric phrases and kept {kept} timings",
+    blankLineInserted: "Inserted [blank] into the source text. Apply the source text to add it as a phrase",
+    blankPhraseInserted: "Inserted a blank phrase and kept {kept} timings",
     safeDemoLoaded: "Loaded {count} rights-safe demo phrases",
     audioUpdated: "Audio reference updated; file content was not stored",
     metadataUpdated: "Project metadata updated",
@@ -432,7 +451,7 @@ const i18n: Record<Language, Record<string, string>> = {
     projectLoadCanceled: "Project load canceled. Edit the timing values in the JSON file before loading it again",
     projectLoadedWithTimingFixes: "Project loaded and {count} problematic timings were set back to unmarked",
     replaceSourceConfirm: "Replace the current source text and any timing with the demo text?",
-    reparseLosesTimingConfirm: "Changing parse mode and reparsing the source text resets existing timings. Continue?",
+    reparseLosesTimingConfirm: "Changing parse mode reparses the source text. Matched timings are kept where possible, but unmatched lines may become unmarked. Continue?",
     parseModeKept: "Parse mode change was canceled",
     noCurrentPhrase: "No current phrase to stamp",
     noNextTarget: "No next phrase to stamp",
@@ -479,6 +498,9 @@ const elements = {
   loadSafeDemo: byId<HTMLButtonElement>("load-safe-demo"),
   parseLyrics: byId<HTMLButtonElement>("parse-lyrics"),
   lyricsText: byId<HTMLTextAreaElement>("lyrics-text"),
+  insertBlankLine: byId<HTMLButtonElement>("insert-blank-line"),
+  insertBlankBeforeCurrent: byId<HTMLButtonElement>("insert-blank-before-current"),
+  insertBlankAfterCurrent: byId<HTMLButtonElement>("insert-blank-after-current"),
   exportWithLyrics: byId<HTMLButtonElement>("export-with-lyrics"),
   exportTimingOnly: byId<HTMLButtonElement>("export-timing-only"),
   exportWebVtt: byId<HTMLButtonElement>("export-webvtt"),
@@ -854,6 +876,95 @@ const currentMetadata = () => ({
   notes: elements.notes.value,
   audioRef: project.audioRef
 });
+
+const phraseHasTiming = (phrase: LyricTimingPhrase) => (
+  phrase.startTimeMs !== null ||
+  phrase.endTimeMs !== null ||
+  (phrase.words ?? []).some((word) => word.startTimeMs !== null || word.endTimeMs !== null)
+);
+
+const phraseTimingSignature = (phrase: LyricTimingPhrase) => [
+  phrase.displayMode ?? "text",
+  phrase.text.trim()
+].join("\u0000");
+
+const copyPhraseTiming = (phrase: LyricTimingPhrase, previous: LyricTimingPhrase): LyricTimingPhrase => ({
+  ...phrase,
+  startTimeMs: previous.startTimeMs,
+  endTimeMs: previous.endTimeMs,
+  words: structuredClone(previous.words ?? [])
+});
+
+const transferReparsedPhraseTiming = (
+  previousProject: LyricTimingProject,
+  nextProject: LyricTimingProject
+) => {
+  let kept = 0;
+
+  if (previousProject.phrases.length === nextProject.phrases.length) {
+    return {
+      project: {
+        ...nextProject,
+        phrases: nextProject.phrases.map((phrase, index) => {
+          const previous = previousProject.phrases[index];
+          if (phraseHasTiming(previous)) kept += 1;
+          return copyPhraseTiming(phrase, previous);
+        })
+      },
+      kept
+    };
+  }
+
+  let previousCursor = 0;
+  const phrases = nextProject.phrases.map((phrase) => {
+    const signature = phraseTimingSignature(phrase);
+    let matchedIndex = -1;
+    for (let cursor = previousCursor; cursor < previousProject.phrases.length; cursor += 1) {
+      if (phraseTimingSignature(previousProject.phrases[cursor]) !== signature) continue;
+      matchedIndex = cursor;
+      previousCursor = cursor + 1;
+      break;
+    }
+    if (matchedIndex < 0) return phrase;
+    const previous = previousProject.phrases[matchedIndex];
+    if (phraseHasTiming(previous)) kept += 1;
+    return copyPhraseTiming(phrase, previous);
+  });
+
+  return {
+    project: {
+      ...nextProject,
+      phrases
+    },
+    kept
+  };
+};
+
+const projectHasAnyTiming = () => project.phrases.some(phraseHasTiming);
+
+const focusSourceInsertion = (lineIndex: number) => {
+  const linesBefore = elements.lyricsText.value.split("\n").slice(0, lineIndex);
+  const start = linesBefore.join("\n").length + (lineIndex > 0 ? 1 : 0);
+  const end = start + BLANK_SOURCE_MARKER.length;
+  elements.lyricsText.focus();
+  elements.lyricsText.setSelectionRange(start, end);
+};
+
+const insertSourceLine = (lineText: string, lineIndex: number) => {
+  const normalized = elements.lyricsText.value.replace(/\r\n?/g, "\n");
+  const lines = normalized.length ? normalized.split("\n") : [];
+  const insertAt = Math.max(0, Math.min(lineIndex, lines.length));
+  lines.splice(insertAt, 0, lineText);
+  elements.lyricsText.value = lines.join("\n");
+  focusSourceInsertion(insertAt);
+  queueAutoSave();
+  return insertAt;
+};
+
+const cursorLineIndex = () => {
+  const cursor = elements.lyricsText.selectionEnd ?? elements.lyricsText.value.length;
+  return elements.lyricsText.value.slice(0, cursor).split("\n").length - 1;
+};
 
 const setInputValueUnlessFocused = (input: HTMLInputElement | HTMLTextAreaElement, value: string) => {
   if (document.activeElement !== input) input.value = value;
@@ -1655,11 +1766,12 @@ const showExportIssues = (issues: LyricTimingIssue[]) => {
   elements.status.textContent = renderIssues(issues);
 };
 
-const parseLyrics = () => {
+const parseLyrics = (options: ParseLyricsOptions = {}) => {
   if (utf8ByteLength(elements.lyricsText.value) > MAX_LYRIC_TEXT_BYTES) {
     setStatus("sourceTextTooLarge", { limit: formatBytes(MAX_LYRIC_TEXT_BYTES) });
     return;
   }
+  const previousProject = cloneProject(project);
   applyMetadata();
   const nextProject = createLyricTimingProject({
     ...currentMetadata(),
@@ -1671,21 +1783,41 @@ const parseLyrics = () => {
     setStatus("tooManyPhrases", { limit: MAX_LYRIC_PHRASES });
     return;
   }
-  project = nextProject;
-  selectedPhraseIndex = 0;
+  const transferred = transferReparsedPhraseTiming(previousProject, nextProject);
+  if (previousProject.phrases.length || projectHasAnyTiming()) pushUndo();
+  project = transferred.project;
+  selectedPhraseIndex = Math.max(
+    0,
+    Math.min(options.selectPhraseIndex ?? selectedPhraseIndex, Math.max(0, project.phrases.length - 1))
+  );
   focusMode = "follow";
   clearSelection();
-  undoStack.length = 0;
-  redoStack.length = 0;
-  setStatus("lyricsParsed", { count: project.phrases.length });
+  const statusKey = options.statusKey ?? (previousProject.phrases.some(phraseHasTiming) ? "lyricsParsedWithTiming" : "lyricsParsed");
+  setStatus(statusKey, {
+    count: project.phrases.length,
+    kept: transferred.kept
+  });
   queueAutoSave();
 };
 
-const projectHasAnyTiming = () => project.phrases.some((phrase) => (
-  phrase.startTimeMs !== null ||
-  phrase.endTimeMs !== null ||
-  (phrase.words ?? []).some((word) => word.startTimeMs !== null || word.endTimeMs !== null)
-));
+const insertBlankLineAtCursor = () => {
+  insertSourceLine(BLANK_SOURCE_MARKER, cursorLineIndex() + 1);
+  setStatus("blankLineInserted");
+};
+
+const insertBlankPhraseNearCurrent = (placement: "before" | "after") => {
+  const phrase = project.phrases[selectedPhraseIndex];
+  if (!phrase) {
+    setStatus("noCurrentPhrase");
+    return;
+  }
+  const insertAt = placement === "before" ? phrase.sourceLine - 1 : phrase.sourceLine;
+  insertSourceLine(BLANK_SOURCE_MARKER, insertAt);
+  parseLyrics({
+    selectPhraseIndex: placement === "before" ? selectedPhraseIndex : selectedPhraseIndex + 1,
+    statusKey: "blankPhraseInserted"
+  });
+};
 
 const loadSafeDemoLyrics = () => {
   const hasCustomSource = elements.lyricsText.value.trim() && elements.lyricsText.value !== SAFE_DEMO_LYRIC_TEXT;
@@ -2209,10 +2341,13 @@ const endSequencePointer = (event: PointerEvent) => {
   event.preventDefault();
 };
 
-elements.parseLyrics.addEventListener("click", parseLyrics);
+elements.parseLyrics.addEventListener("click", () => parseLyrics());
 elements.loadSafeDemo.addEventListener("click", loadSafeDemoLyrics);
 elements.parseMode.addEventListener("change", handleParseModeChange);
 elements.lyricsText.addEventListener("input", queueAutoSave);
+elements.insertBlankLine.addEventListener("click", insertBlankLineAtCursor);
+elements.insertBlankBeforeCurrent.addEventListener("click", () => insertBlankPhraseNearCurrent("before"));
+elements.insertBlankAfterCurrent.addEventListener("click", () => insertBlankPhraseNearCurrent("after"));
 
 elements.lyricsInput.addEventListener("change", async () => {
   const file = elements.lyricsInput.files?.[0];

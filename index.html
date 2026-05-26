@@ -51,6 +51,14 @@
                 <span data-i18n="pasteLyrics">Source text</span>
                 <textarea id="lyrics-text" class="lyrics-text" spellcheck="false"></textarea>
               </label>
+              <div class="source-tools">
+                <p class="source-help" data-i18n="blankSourceHint">Blank source lines are section breaks. Use [blank] as a line when the lyric display should be empty.</p>
+                <div class="source-tool-actions">
+                  <button id="insert-blank-line" type="button" data-i18n="insertBlankLine">Insert [blank]</button>
+                  <button id="insert-blank-before-current" type="button" data-i18n="insertBlankBeforeCurrent">Blank before current</button>
+                  <button id="insert-blank-after-current" type="button" data-i18n="insertBlankAfterCurrent">Blank after current</button>
+                </div>
+              </div>
               <div class="source-actions">
                 <button id="load-safe-demo" type="button" data-i18n="loadSafeDemo">Load safe demo</button>
                 <button id="parse-lyrics" type="button" class="solid-action" data-i18n="parseLyrics">Apply source text</button>

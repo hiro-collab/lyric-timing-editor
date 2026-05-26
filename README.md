@@ -75,6 +75,7 @@ npm run build
 - Load lyric text from a file or pasted text.
 - Parse lyrics in TextAlive-compatible mode or literal mode.
 - Add `[blank]`, `[no lyrics]`, `[歌詞なし]`, or `[無表示]` as a source line when an intro, interlude, or outro should clear the lyric display.
+- Insert `[blank]` from the source text editor, including before or after the current phrase while preserving matched timings where possible.
 - Show current and next phrase.
 - Stamp current/next phrase with buttons or keyboard shortcuts.
 - Select, move, clear, and evenly place phrase timing markers.

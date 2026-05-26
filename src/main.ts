@@ -40,6 +40,20 @@ type ParseLyricsOptions = {
   statusKey?: string;
 };
 type AutoSaveStatus = "idle" | "pending" | "saving" | "saved" | "error" | "unavailable";
+type SaveFilePickerOptionsLike = {
+  suggestedName?: string;
+  types?: Array<{
+    description: string;
+    accept: Record<string, string[]>;
+  }>;
+};
+type FileSystemWritableFileStreamLike = {
+  write: (data: Blob) => Promise<void>;
+  close: () => Promise<void>;
+};
+type FileSystemFileHandleLike = {
+  createWritable: () => Promise<FileSystemWritableFileStreamLike>;
+};
 type TrackGeometry = {
   left: number;
   width: number;
@@ -70,6 +84,12 @@ type SequenceDragState =
       previewOffsetMs: number;
       moved: boolean;
     };
+
+declare global {
+  interface Window {
+    showSaveFilePicker?: (options?: SaveFilePickerOptionsLike) => Promise<FileSystemFileHandleLike>;
+  }
+}
 
 const LANGUAGE_STORAGE_KEY = "lyric-timing-editor:language";
 const VOLUME_STORAGE_KEY = "lyric-timing-editor:volume";
@@ -244,6 +264,9 @@ const i18n: Record<Language, Record<string, string>> = {
     safeDemoLoaded: "権利確認不要のデモ文を {count} フレーズとして読み込みました",
     audioUpdated: "音源参照を更新しました。音源本体は保存しません",
     metadataUpdated: "プロジェクト詳細を更新しました",
+    projectSaved: "Project JSONを保存しました。次回のProject保存は同じファイルへ上書きします",
+    projectSaveCanceled: "Project保存をキャンセルしました",
+    projectSaveFailed: "Project JSONを保存できませんでした。保存先の権限を確認するか、もう一度保存先を選んでください",
     projectDownloaded: "Project JSONをダウンロードしました",
     projectLoaded: "Projectを読み込みました",
     draftRestored: "自動保存下書きを復元しました。音源ファイルは再読み込みしてください",
@@ -440,6 +463,9 @@ const i18n: Record<Language, Record<string, string>> = {
     safeDemoLoaded: "Loaded {count} rights-safe demo phrases",
     audioUpdated: "Audio reference updated; file content was not stored",
     metadataUpdated: "Project metadata updated",
+    projectSaved: "Project JSON saved. The next Project Save will overwrite the same file",
+    projectSaveCanceled: "Project save canceled",
+    projectSaveFailed: "Could not save Project JSON. Check file permission or choose the save location again",
     projectDownloaded: "Project JSON downloaded",
     projectLoaded: "Project loaded",
     draftRestored: "Autosave draft restored. Load the audio file again before playback",
@@ -617,6 +643,7 @@ let autoSaveTimer: number | null = null;
 let pendingDraft: AutoSaveDraft | null = null;
 let availableDraft: AutoSaveDraft | null = null;
 let lastAutoSaveKey = "";
+let projectSaveFileHandle: FileSystemFileHandleLike | null = null;
 const undoStack: Snapshot[] = [];
 const redoStack: Snapshot[] = [];
 
@@ -1899,6 +1926,33 @@ const downloadJson = (fileName: string, value: unknown) => {
   downloadText(fileName, `${JSON.stringify(value, null, 2)}\n`, "application/json;charset=utf-8");
 };
 
+const canSaveToPickedFile = () => (
+  window.isSecureContext && typeof window.showSaveFilePicker === "function"
+);
+
+const projectJsonText = () => `${JSON.stringify(project, null, 2)}\n`;
+
+const pickProjectSaveFile = (fileName: string) => window.showSaveFilePicker?.({
+  suggestedName: fileName,
+  types: [
+    {
+      description: "Lyric Timing Editor Project JSON",
+      accept: {
+        "application/json": [".json"]
+      }
+    }
+  ]
+});
+
+const writeProjectFile = async (handle: FileSystemFileHandleLike, jsonText: string) => {
+  const writable = await handle.createWritable();
+  try {
+    await writable.write(new Blob([jsonText], { type: "application/json;charset=utf-8" }));
+  } finally {
+    await writable.close();
+  }
+};
+
 const downloadText = (fileName: string, value: string, type: string) => {
   const blob = new Blob([value], { type });
   const url = URL.createObjectURL(blob);
@@ -2587,12 +2641,39 @@ for (const input of [elements.title, elements.artist, elements.slug, elements.du
 }
 
 elements.saveProject.addEventListener("click", () => {
+  void saveProject();
+});
+
+const saveProject = async () => {
   if (!requireLyricsRightsConfirmation()) return;
   applyMetadata();
   project = { ...project, updatedAt: new Date().toISOString() };
-  downloadJson(`${fileBaseName()}.lyric-timing-project.json`, project);
-  setStatus("projectDownloaded");
-});
+  const fileName = `${fileBaseName()}.lyric-timing-project.json`;
+  const jsonText = projectJsonText();
+
+  if (!canSaveToPickedFile()) {
+    downloadText(fileName, jsonText, "application/json;charset=utf-8");
+    setStatus("projectDownloaded");
+    return;
+  }
+
+  try {
+    projectSaveFileHandle = projectSaveFileHandle ?? await pickProjectSaveFile(fileName) ?? null;
+    if (!projectSaveFileHandle) {
+      setStatus("projectSaveCanceled");
+      return;
+    }
+    await writeProjectFile(projectSaveFileHandle, jsonText);
+    setStatus("projectSaved");
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      setStatus("projectSaveCanceled");
+      return;
+    }
+    projectSaveFileHandle = null;
+    setStatus("projectSaveFailed");
+  }
+};
 
 elements.projectInput.addEventListener("change", async () => {
   const file = elements.projectInput.files?.[0];
@@ -2631,6 +2712,7 @@ elements.projectInput.addEventListener("change", async () => {
     loaded = sanitized.project;
   }
   project = loaded;
+  projectSaveFileHandle = null;
   selectedPhraseIndex = 0;
   focusMode = "follow";
   clearSelection();

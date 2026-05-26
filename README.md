@@ -50,6 +50,8 @@ Export targets:
 See `docs/export-formats.md` for details.
 See `SECURITY.md` and `PRIVACY.md` for the static local-browser security and privacy boundaries.
 
+On browsers that support the File System Access API, Project Save lets you choose a local JSON file and then overwrite the same file on later saves in the same browser session. Other browsers fall back to a normal download.
+
 ## Important Rights Note
 
 Before publishing, distributing, uploading, or committing files that include lyric text, confirm the lyric rights and the destination terms. This repository intentionally does not include sample audio files, sample lyric files, or real-song timing data.

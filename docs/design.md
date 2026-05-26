@@ -11,6 +11,7 @@ It should not depend on Music Effect player DOM, Launch Manager, song packs, or 
 - Audio is local browser input only.
 - Audio binaries, local absolute paths, and audio hashes are not saved.
 - Project JSON may include lyric text and should be treated as private working data unless rights are confirmed.
+- Project Save should use a browser-picked writable file when available so repeated saves can overwrite the same local JSON file. Browser security still requires the user to choose the file; unsupported browsers fall back to a download.
 - Timing-only export should omit lyric text.
 - Export with lyrics should show a rights confirmation before download.
 - Autosave uses local IndexedDB and may include lyric text, but does not include audio files.

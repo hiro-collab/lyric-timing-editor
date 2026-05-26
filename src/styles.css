@@ -663,7 +663,7 @@ label span {
 
 .lyric-stage {
   display: grid;
-  grid-template-rows: minmax(0, 1fr) auto auto;
+  grid-template-rows: auto auto auto;
   gap: 12px;
   min-height: 0;
   padding: 16px 20px 14px;
@@ -689,7 +689,7 @@ label span {
 }
 
 .current-phrase-card {
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(min-content, 1fr) auto;
   min-height: 230px;
   padding: 18px 20px;
   border-left: 4px solid var(--green);
@@ -731,6 +731,7 @@ label span {
 .current-phrase-text {
   display: flex;
   align-items: center;
+  min-height: 43px;
   min-width: 0;
   margin: 8px 0;
   color: var(--ink);
@@ -741,6 +742,7 @@ label span {
 }
 
 .next-phrase-card p {
+  min-height: 29px;
   margin: 0;
   color: var(--muted);
   font-size: 20px;
@@ -769,7 +771,7 @@ label span {
 
 .transport {
   display: grid;
-  grid-template-columns: auto auto minmax(120px, auto) minmax(180px, 1fr) auto;
+  grid-template-columns: auto auto minmax(120px, auto) minmax(148px, 0.35fr) auto;
   align-items: center;
   gap: 10px;
   min-width: 0;
@@ -842,11 +844,42 @@ label span {
 }
 
 #seek-bar {
+  grid-column: 1 / -1;
+  width: 100%;
+  accent-color: var(--green);
+}
+
+.volume-control {
+  display: grid;
+  grid-template-columns: auto minmax(78px, 1fr) 40px;
+  align-items: center;
+  gap: 7px;
+  min-width: 128px;
+}
+
+.volume-control label,
+.volume-control output {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.volume-control output {
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+#volume-slider {
+  width: 100%;
   accent-color: var(--green);
 }
 
 .stamp-actions {
   display: flex;
+  grid-column: 5;
+  grid-row: 1;
   gap: 8px;
   justify-content: flex-end;
 }
@@ -854,7 +887,7 @@ label span {
 .sequence-wrap {
   display: grid;
   gap: 8px;
-  min-height: 64px;
+  min-height: 82px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #f8f9f8;
@@ -902,7 +935,7 @@ label span {
 .sequence-track {
   position: relative;
   width: 100%;
-  height: 42px;
+  height: 58px;
 }
 
 .sequence-bar {
@@ -910,11 +943,11 @@ label span {
   border: 1px solid #c9ddd4;
   border-radius: 8px;
   background: #eef6f2;
-  cursor: crosshair;
+  cursor: pointer;
 }
 
 .sequence-track {
-  height: 34px;
+  height: 50px;
   border: 1px solid rgba(8, 120, 76, 0.14);
   border-radius: 6px;
   background:
@@ -928,7 +961,7 @@ label span {
   position: absolute;
   left: 0;
   right: 0;
-  top: 16px;
+  top: 24px;
   height: 3px;
   border-radius: 99px;
   background: #c9d8d1;
@@ -938,7 +971,7 @@ label span {
   position: absolute;
   top: 4px;
   bottom: 2px;
-  width: 2px;
+  width: 3px;
   border-radius: 99px;
   background: #17221d;
   transform: translateX(-50%);
@@ -956,9 +989,14 @@ label span {
   pointer-events: none;
 }
 
+.sequence-bar:focus-visible {
+  outline: 2px solid rgba(8, 120, 76, 0.42);
+  outline-offset: 2px;
+}
+
 .sequence-marker {
   position: absolute;
-  top: 10px;
+  top: 18px;
   width: 14px;
   height: 14px;
   min-height: 14px;
@@ -973,7 +1011,7 @@ label span {
 }
 
 .sequence-marker.is-untimed {
-  top: 24px;
+  top: 36px;
   width: 8px;
   height: 8px;
   min-height: 8px;
@@ -1205,6 +1243,11 @@ label span {
   overflow-wrap: anywhere;
 }
 
+.phrase-select.is-blank-display {
+  color: var(--faint);
+  font-style: italic;
+}
+
 .number-cell,
 .time-cell,
 .line-cell {
@@ -1426,9 +1469,24 @@ label span {
     grid-template-columns: 1fr;
   }
 
+  #seek-bar,
+  .stamp-actions {
+    grid-column: auto;
+    grid-row: auto;
+  }
+
   .stamp-actions {
     justify-content: flex-start;
     flex-wrap: wrap;
+  }
+}
+
+@media (min-width: 1101px) and (max-height: 960px) {
+  .app-shell {
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
+    grid-template-rows: auto auto auto auto minmax(260px, auto);
   }
 }
 

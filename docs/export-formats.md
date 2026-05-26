@@ -12,6 +12,7 @@ Status: draft target specification, 2026-05-25.
 - The editor may offer an explicit "fill unmarked phrases" edit action before export. That action updates the project and can be undone with Undo or Ctrl+Z.
 - Exported notes are omitted. Working notes stay in Project JSON only.
 - Real lyric text, audio files, and real-song lyric-included exports should not be committed or published without rights confirmation.
+- Phrase ranges are contiguous. For phrase N, exported `endTimeMs` is normally phrase N+1 `startTimeMs`; the last phrase ends at `durationMs` when available.
 
 ## Music Effect v2 JSON
 
@@ -71,9 +72,10 @@ Music Effect v2 JSON is the primary machine-readable export for Music Effect / s
 - `id`: Stable phrase ID from the editor, such as `phrase-0001`.
 - `index`: Zero-based phrase index.
 - `startTimeMs`: Required integer start time in milliseconds.
-- `endTimeMs`: Required integer end time in milliseconds.
+- `endTimeMs`: Required integer end time in milliseconds. It is derived by the exporter from the next phrase `startTimeMs`; for the final phrase it uses `durationMs` when available.
 - `sourceLine`: Source text line number used to create the phrase.
 - `text`: Included only when `includesLyrics` is `true`.
+- `displayMode`: Optional. `blank` means the phrase is an intentional no-lyric display range, such as an intro, interlude, or outro.
 
 ### Timing-Only Export
 
@@ -126,6 +128,7 @@ Music Effect currently uses seconds internally for `LyricCue`. A v2 importer sho
 
 - Keep existing `music-effect.lyrics-timing.v1` support as legacy.
 - Convert `startTimeMs` and `endTimeMs` to seconds when normalizing to internal cues.
+- Treat phrase ranges as contiguous boundaries: phrase N `endTimeMs` should equal phrase N+1 `startTimeMs` in v2 exports.
 - Use `phrases[].text` when `includesLyrics` is `true`.
 - Join with song-pack lyric lines when `includesLyrics` is `false`.
 - Treat `slug`, `songle`, and `sourceLine` as optional metadata for validation, diagnostics, or matching.

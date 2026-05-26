@@ -41,6 +41,11 @@ type TrackGeometry = {
 };
 type SequenceDragState =
   | {
+      type: "seek";
+      pointerId: number;
+      track: TrackGeometry;
+    }
+  | {
       type: "range";
       pointerId: number;
       startClientX: number;
@@ -62,6 +67,7 @@ type SequenceDragState =
     };
 
 const LANGUAGE_STORAGE_KEY = "lyric-timing-editor:language";
+const VOLUME_STORAGE_KEY = "lyric-timing-editor:volume";
 const AUTOSAVE_DB_NAME = "lyric-timing-editor";
 const AUTOSAVE_STORE_NAME = "drafts";
 const AUTOSAVE_RECORD_ID = "latest";
@@ -69,6 +75,9 @@ const AUTOSAVE_SCHEMA = "lyric-timing-editor.autosave.v1";
 const AUTOSAVE_DELAY_MS = 600;
 const MIN_TIMING_GAP_MS = 1;
 const TIMING_NUDGE_MS = 10;
+const SEEK_STEP_MS = 1000;
+const SEEK_FINE_STEP_MS = 100;
+const SEEK_LARGE_STEP_MS = 5000;
 const DRAG_START_THRESHOLD_PX = 3;
 const FINE_DRAG_SCALE = 0.16;
 const MAX_LYRIC_TEXT_BYTES = 1_000_000;
@@ -114,6 +123,10 @@ const i18n: Record<Language, Record<string, string>> = {
     exportLyricsRequiredHint: "歌詞権利確認が必要",
     help: "Help",
     clearLocalData: "下書き削除",
+    volume: "音量",
+    volumePercent: "音量 {percent}%",
+    playbackPosition: "再生位置",
+    sequenceSeekHint: "クリック/ドラッグで再生位置を移動。Ctrl+ドラッグで範囲選択。ホイールまたは←/→で微調整、Shiftで細かく調整。",
     audioFile: "音源",
     duration: "長さ",
     projectState: "Project",
@@ -181,7 +194,8 @@ const i18n: Record<Language, Record<string, string>> = {
     helpRights: "歌詞本文を含むファイルを公開、配布、アップロード、GitHubへコミットする前に、歌詞の権利と配布先の利用条件を確認してください。",
     helpAudio: "音源はブラウザ内で再生するだけです。Projectにはファイル名と任意の長さ情報だけを保存します。",
     helpLocalDraft: "自動保存下書きはこのブラウザのIndexedDBに保存され、歌詞テキストを含むことがあります。",
-    lyricsPlaceholder: "# verse\\n\\#歌詞の先頭に#を出したい場合\\n\\n歌詞の1行が1フレーズになります",
+    lyricsPlaceholder: "# verse\\n\\#歌詞の先頭に#を出したい場合\\n[blank]\\n\\n歌詞の1行が1フレーズになります",
+    blankPhraseLabel: "（無表示）",
     untitled: "Untitled",
     unknownArtist: "Unknown artist",
     audioNotSelected: "未選択",
@@ -285,6 +299,10 @@ const i18n: Record<Language, Record<string, string>> = {
     exportLyricsRequiredHint: "Requires lyric rights confirmation",
     help: "Help",
     clearLocalData: "Clear Draft",
+    volume: "Volume",
+    volumePercent: "Volume {percent}%",
+    playbackPosition: "Playback position",
+    sequenceSeekHint: "Click/drag to seek. Ctrl-drag selects a range. Use wheel or left/right arrows to nudge; Shift makes it fine.",
     audioFile: "Audio",
     duration: "Duration",
     projectState: "Project",
@@ -352,7 +370,8 @@ const i18n: Record<Language, Record<string, string>> = {
     helpRights: "Before publishing, distributing, uploading, or committing files that include lyric text, confirm the lyric rights and the destination terms.",
     helpAudio: "Audio only plays in the browser session. The project stores only file name and optional duration metadata.",
     helpLocalDraft: "Autosave drafts are stored in this browser's IndexedDB and may include lyric text.",
-    lyricsPlaceholder: "# verse\\n\\#hash can be lyric text\\n\\nEach lyric line becomes one phrase",
+    lyricsPlaceholder: "# verse\\n\\#hash can be lyric text\\n[blank]\\n\\nEach lyric line becomes one phrase",
+    blankPhraseLabel: "(no lyrics)",
     untitled: "Untitled",
     unknownArtist: "Unknown artist",
     audioNotSelected: "not selected",
@@ -484,6 +503,8 @@ const elements = {
   audioGuidance: byId<HTMLElement>("audio-guidance"),
   playbackTime: byId<HTMLElement>("playback-time"),
   playbackDuration: byId<HTMLElement>("playback-duration"),
+  volumeSlider: byId<HTMLInputElement>("volume-slider"),
+  volumeValue: byId<HTMLOutputElement>("volume-value"),
   seekBar: byId<HTMLInputElement>("seek-bar"),
   stampCurrent: byId<HTMLButtonElement>("stamp-current"),
   stampNext: byId<HTMLButtonElement>("stamp-next"),
@@ -526,6 +547,7 @@ let selectionAnchorIndex: number | null = null;
 let focusMode: FocusMode = "follow";
 let statusMessage: StatusMessage = { key: "ready" };
 let previewTimeMs = 0;
+let audioVolumePercent = 100;
 let audioObjectUrl: string | null = null;
 let audioGuidanceAlert = false;
 let sequenceDragState: SequenceDragState | null = null;
@@ -556,6 +578,36 @@ const setStatus = (key: string, values?: Record<string, string | number>) => {
 };
 
 const textEncoder = new TextEncoder();
+
+const clampVolumePercent = (value: number) => (
+  Math.max(0, Math.min(100, Math.round(value)))
+);
+
+const readStoredVolumePercent = () => {
+  try {
+    const stored = localStorage.getItem(VOLUME_STORAGE_KEY);
+    if (stored === null) return 100;
+    const parsed = Number(stored);
+    return Number.isFinite(parsed) ? clampVolumePercent(parsed) : 100;
+  } catch {
+    return 100;
+  }
+};
+
+const applyAudioVolume = (nextPercent: number, persist = false) => {
+  audioVolumePercent = clampVolumePercent(nextPercent);
+  elements.audioPlayer.volume = audioVolumePercent / 100;
+  elements.audioPlayer.muted = audioVolumePercent === 0;
+  elements.volumeSlider.value = String(audioVolumePercent);
+  elements.volumeValue.textContent = `${audioVolumePercent}%`;
+  elements.volumeSlider.setAttribute("aria-label", text("volumePercent", { percent: audioVolumePercent }));
+  if (!persist) return;
+  try {
+    localStorage.setItem(VOLUME_STORAGE_KEY, String(audioVolumePercent));
+  } catch {
+    // Volume is a convenience preference; playback should still work if storage is unavailable.
+  }
+};
 
 const isRecord = (value: unknown): value is Record<string, unknown> => (
   typeof value === "object" && value !== null && !Array.isArray(value)
@@ -1002,6 +1054,10 @@ const formatTimeCell = (valueMs: number | null | undefined) => (
   valueMs === null || valueMs === undefined ? text("unmarked") : formatClock(valueMs)
 );
 
+const phraseEditorLabel = (phrase: LyricTimingPhrase) => (
+  phrase.displayMode === "blank" ? text("blankPhraseLabel") : phrase.text
+);
+
 const formatDuration = (valueMs: number | null | undefined) => (
   valueMs === null || valueMs === undefined ? text("durationUnknown") : `${formatClock(valueMs)} / ${valueMs} ms`
 );
@@ -1051,9 +1107,12 @@ const getNextPhraseIndex = () => {
 };
 
 const getEffectiveEndTimeMs = (phrase: LyricTimingPhrase) => {
-  if (phrase.endTimeMs !== null) return phrase.endTimeMs;
+  if (phrase.startTimeMs === null) return null;
   const nextPhrase = project.phrases[phrase.index + 1];
-  return nextPhrase?.startTimeMs ?? null;
+  if (nextPhrase?.startTimeMs !== null && nextPhrase?.startTimeMs !== undefined) return nextPhrase.startTimeMs;
+  const durationMs = getKnownDurationMs();
+  if (durationMs !== null && durationMs > phrase.startTimeMs) return durationMs;
+  return phrase.endTimeMs;
 };
 
 const isValidPhraseIndex = (index: number) => index >= 0 && index < project.phrases.length;
@@ -1240,6 +1299,25 @@ const clientXToTimeMs = (clientX: number, track: TrackGeometry) => {
   return Math.min(durationMs, Math.max(0, ratio * durationMs));
 };
 
+const setPlaybackPositionMs = (timeMs: number) => {
+  const durationMs = getTimelineDurationMs();
+  const nextTimeMs = Math.min(durationMs, Math.max(0, Math.round(timeMs)));
+  previewTimeMs = nextTimeMs;
+  if (elements.audioPlayer.src && Number.isFinite(elements.audioPlayer.duration)) {
+    const audioDurationMs = Math.max(0, Math.round(elements.audioPlayer.duration * 1000));
+    elements.audioPlayer.currentTime = Math.min(nextTimeMs, audioDurationMs) / 1000;
+  }
+  render();
+};
+
+const shiftPlaybackPositionMs = (offsetMs: number) => {
+  setPlaybackPositionMs(getPlaybackMs() + offsetMs);
+};
+
+const seekStepFromEvent = (event: Pick<KeyboardEvent | WheelEvent, "shiftKey">) => (
+  event.shiftKey ? SEEK_FINE_STEP_MS : SEEK_STEP_MS
+);
+
 const getTrackGeometry = (): TrackGeometry => {
   const track = elements.sequenceBar.querySelector<HTMLElement>(".sequence-track");
   const rect = (track ?? elements.sequenceBar).getBoundingClientRect();
@@ -1314,10 +1392,14 @@ const renderPhraseStage = () => {
 
   elements.focusModeLabel.textContent = focusMode === "follow" ? text("followPlayback") : text("manualSelection");
   elements.currentPhraseText.textContent = currentPhrase?.text ?? text("noPhraseLoaded");
+  elements.currentPhraseText.classList.toggle("is-blank-display", currentPhrase?.displayMode === "blank");
+  elements.currentPhraseText.setAttribute("aria-label", currentPhrase?.displayMode === "blank" ? text("blankPhraseLabel") : "");
   elements.currentPhraseId.textContent = currentPhrase ? `${text("phrase")} ${currentPhrase.index + 1}` : `${text("phrase")} --`;
   elements.currentPhraseTime.textContent = currentPhrase ? formatTimeCell(currentPhrase.startTimeMs) : "--:--.---";
   elements.currentPhraseLine.textContent = currentPhrase ? `${text("line")} ${currentPhrase.sourceLine}` : `${text("line")} --`;
   elements.nextPhraseText.textContent = nextPhrase?.text ?? text("noNextPhrase");
+  elements.nextPhraseText.classList.toggle("is-blank-display", nextPhrase?.displayMode === "blank");
+  elements.nextPhraseText.setAttribute("aria-label", nextPhrase?.displayMode === "blank" ? text("blankPhraseLabel") : "");
   elements.nextPhraseId.textContent = nextPhrase ? `${text("phrase")} ${nextPhrase.index + 1}` : `${text("phrase")} --`;
   elements.nextPhraseTime.textContent = nextPhrase ? formatTimeCell(nextPhrase.startTimeMs) : "--:--.---";
 };
@@ -1332,10 +1414,12 @@ const renderTransport = () => {
   elements.seekBar.max = String(durationMs);
   elements.seekBar.value = String(Math.min(playbackMs, durationMs));
   elements.seekBar.disabled = project.phrases.length === 0 && !hasAudioSource;
+  elements.seekBar.setAttribute("aria-label", text("playbackPosition"));
   const playLabel = elements.playToggle.querySelector<HTMLSpanElement>("[data-i18n]");
   const playIcon = elements.playToggle.querySelector<HTMLSpanElement>(".play-icon");
   if (playLabel) playLabel.textContent = text(elements.audioPlayer.paused ? "play" : "pause");
   if (playIcon) playIcon.dataset.state = elements.audioPlayer.paused ? "play" : "pause";
+  applyAudioVolume(audioVolumePercent);
   elements.playToggle.classList.toggle("needs-audio", !hasAudioSource);
   elements.playToggle.title = hasAudioSource ? text(elements.audioPlayer.paused ? "play" : "pause") : text("loadAudioFirst");
   elements.audioGuidance.hidden = hasAudioSource;
@@ -1403,7 +1487,8 @@ const renderPhraseTable = () => {
     const phraseButton = document.createElement("button");
     phraseButton.type = "button";
     phraseButton.className = "phrase-select";
-    phraseButton.textContent = phrase.text;
+    phraseButton.classList.toggle("is-blank-display", phrase.displayMode === "blank");
+    phraseButton.textContent = phraseEditorLabel(phrase);
     phraseButton.dataset.phraseIndex = String(phrase.index);
     phraseCell.append(phraseButton);
 
@@ -1438,6 +1523,13 @@ const renderSequenceBar = () => {
   playhead.className = "sequence-playhead";
   playhead.style.left = `${Math.min(100, Math.max(0, (playbackMs / durationMs) * 100))}%`;
   track.append(playhead);
+
+  elements.sequenceBar.setAttribute("aria-label", text("playbackPosition"));
+  elements.sequenceBar.setAttribute("aria-valuemin", "0");
+  elements.sequenceBar.setAttribute("aria-valuemax", String(durationMs));
+  elements.sequenceBar.setAttribute("aria-valuenow", String(Math.min(playbackMs, durationMs)));
+  elements.sequenceBar.setAttribute("aria-valuetext", formatClock(playbackMs));
+  elements.sequenceBar.title = text("sequenceSeekHint");
 
   if (sequenceDragState?.type === "range") {
     const startPercent = Math.min(
@@ -1991,6 +2083,19 @@ const beginSequencePointer = (event: PointerEvent) => {
     return;
   }
 
+  if (!event.ctrlKey && !event.metaKey) {
+    sequenceDragState = {
+      type: "seek",
+      pointerId: event.pointerId,
+      track
+    };
+    elements.sequenceBar.setPointerCapture(event.pointerId);
+    setPlaybackPositionMs(clientXToTimeMs(event.clientX, track));
+    elements.sequenceBar.focus();
+    event.preventDefault();
+    return;
+  }
+
   sequenceDragState = {
     type: "range",
     pointerId: event.pointerId,
@@ -2007,6 +2112,12 @@ const beginSequencePointer = (event: PointerEvent) => {
 
 const moveSequencePointer = (event: PointerEvent) => {
   if (!sequenceDragState || sequenceDragState.pointerId !== event.pointerId) return;
+
+  if (sequenceDragState.type === "seek") {
+    setPlaybackPositionMs(clientXToTimeMs(event.clientX, sequenceDragState.track));
+    event.preventDefault();
+    return;
+  }
 
   if (sequenceDragState.type === "range") {
     sequenceDragState = { ...sequenceDragState, currentClientX: event.clientX };
@@ -2044,6 +2155,11 @@ const endSequencePointer = (event: PointerEvent) => {
   sequenceDragState = null;
   if (elements.sequenceBar.hasPointerCapture(event.pointerId)) {
     elements.sequenceBar.releasePointerCapture(event.pointerId);
+  }
+
+  if (endedState.type === "seek") {
+    event.preventDefault();
+    return;
   }
 
   if (endedState.type === "range") {
@@ -2289,12 +2405,60 @@ elements.selectionClear.addEventListener("click", () => {
 
 elements.seekBar.addEventListener("input", () => {
   const nextMs = Number(elements.seekBar.value);
-  previewTimeMs = Number.isFinite(nextMs) ? nextMs : 0;
-  if (elements.audioPlayer.src && Number.isFinite(elements.audioPlayer.duration)) {
-    elements.audioPlayer.currentTime = previewTimeMs / 1000;
-  }
-  render();
+  setPlaybackPositionMs(Number.isFinite(nextMs) ? nextMs : 0);
 });
+
+elements.volumeSlider.addEventListener("input", () => {
+  applyAudioVolume(Number(elements.volumeSlider.value), true);
+});
+
+const handleSeekKeyboard = (event: KeyboardEvent) => {
+  switch (event.key) {
+    case "ArrowLeft":
+      event.preventDefault();
+      shiftPlaybackPositionMs(-seekStepFromEvent(event));
+      return true;
+    case "ArrowRight":
+      event.preventDefault();
+      shiftPlaybackPositionMs(seekStepFromEvent(event));
+      return true;
+    case "PageDown":
+      event.preventDefault();
+      shiftPlaybackPositionMs(-SEEK_LARGE_STEP_MS);
+      return true;
+    case "PageUp":
+      event.preventDefault();
+      shiftPlaybackPositionMs(SEEK_LARGE_STEP_MS);
+      return true;
+    case "Home":
+      event.preventDefault();
+      setPlaybackPositionMs(0);
+      return true;
+    case "End":
+      event.preventDefault();
+      setPlaybackPositionMs(getTimelineDurationMs());
+      return true;
+    default:
+      return false;
+  }
+};
+
+const handleSeekWheel = (event: WheelEvent) => {
+  if (event.ctrlKey || event.metaKey || event.altKey) return;
+  const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+  if (delta === 0) return;
+  event.preventDefault();
+  shiftPlaybackPositionMs((delta > 0 ? 1 : -1) * seekStepFromEvent(event));
+};
+
+elements.seekBar.addEventListener("keydown", (event) => {
+  if (handleSeekKeyboard(event)) event.stopPropagation();
+});
+elements.sequenceBar.addEventListener("keydown", (event) => {
+  if (handleSeekKeyboard(event)) event.stopPropagation();
+});
+elements.seekBar.addEventListener("wheel", handleSeekWheel, { passive: false });
+elements.sequenceBar.addEventListener("wheel", handleSeekWheel, { passive: false });
 
 elements.audioPlayer.addEventListener("timeupdate", () => {
   previewTimeMs = getPlaybackMs();
@@ -2345,6 +2509,10 @@ window.addEventListener("keydown", (event) => {
     return;
   }
   if (isTextEditingTarget(event.target)) return;
+  if (event.target === elements.volumeSlider) return;
+  if (event.target === elements.seekBar || event.target === elements.sequenceBar) {
+    if (handleSeekKeyboard(event)) return;
+  }
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "a") {
     event.preventDefault();
     selectAllPhrases();
@@ -2408,5 +2576,6 @@ window.addEventListener("pagehide", () => {
 });
 
 setHitDebugEnabled(hitDebugEnabled);
+applyAudioVolume(readStoredVolumePercent());
 render();
 void initializeAutoSave();

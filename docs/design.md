@@ -23,7 +23,10 @@ It should not depend on Music Effect player DOM, Launch Manager, song packs, or 
 - Editable project cues use `startTimeMs` / `endTimeMs`.
 - Untimed phrases use `startTimeMs: null`.
 - Export requires every phrase to have a start time.
-- Missing end times are derived from the next phrase start time, or from project duration for the last phrase.
+- `startTimeMs` is the canonical editable phrase boundary.
+- `endTimeMs` in exports is a derived contiguous boundary: phrase N ends at phrase N+1 `startTimeMs`.
+- The final phrase ends at `durationMs` when available. If neither duration nor a valid explicit final `endTimeMs` is available, the exporter uses a short fallback duration so draft exports can still be inspected.
+- Project JSON may still contain explicit `endTimeMs` for compatibility with imported or older data, but downstream systems should treat exported `endTimeMs` as the normalized boundary.
 
 ## Schemas
 

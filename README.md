@@ -8,6 +8,14 @@ The app also includes a small synthetic demo text button so the editor can be sm
 
 ## Use
 
+Hosted static app:
+
+https://hiro-collab.github.io/lyric-timing-editor/
+
+The hosted page runs in your browser. Local audio and lyric files are not uploaded by this app.
+
+Local development:
+
 ```powershell
 npm install
 npm run dev
@@ -30,7 +38,7 @@ This editor writes two kinds of JSON:
 - Work project JSON: editable draft data for this editor.
 - Timing export JSON: completed timing data for use by another music/video system.
 
-Timing values are stored as integer milliseconds in `startTimeMs` / `endTimeMs`.
+Timing values are stored as integer milliseconds. `startTimeMs` is the editable phrase boundary. Exported `endTimeMs` is derived from the next phrase `startTimeMs`; for the last phrase it is derived from `durationMs` when available.
 The timing-only export does not include lyric text. Exports with lyric text and project JSON files may include copyrighted lyrics.
 
 Export targets:
@@ -66,6 +74,7 @@ npm run build
 - Load local audio in the browser.
 - Load lyric text from a file or pasted text.
 - Parse lyrics in TextAlive-compatible mode or literal mode.
+- Add `[blank]`, `[no lyrics]`, `[歌詞なし]`, or `[無表示]` as a source line when an intro, interlude, or outro should clear the lyric display.
 - Show current and next phrase.
 - Stamp current/next phrase with buttons or keyboard shortcuts.
 - Select, move, clear, and evenly place phrase timing markers.

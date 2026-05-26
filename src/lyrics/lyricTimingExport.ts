@@ -68,6 +68,7 @@ export const validateLyricTimingProject = (project: LyricTimingProject): LyricTi
   }
 
   const phraseIds = new Set<string>();
+  let previousStartTimeMs: number | null = null;
   project.phrases.forEach((phrase, index) => {
     const path = `phrases[${index}]`;
     if (phraseIds.has(phrase.id)) {
@@ -77,7 +78,7 @@ export const validateLyricTimingProject = (project: LyricTimingProject): LyricTi
     if (phrase.index !== index) {
       issues.push({ level: "warning", code: "index-order", message: "Phrase index does not match array order.", path: `${path}.index` });
     }
-    if (!phrase.text.trim()) {
+    if (!phrase.text.trim() && phrase.displayMode !== "blank") {
       issues.push({ level: "warning", code: "empty-phrase", message: "Phrase text is empty.", path: `${path}.text` });
     }
     if (phrase.startTimeMs !== null && !isNonNegativeInteger(phrase.startTimeMs)) {
@@ -86,12 +87,35 @@ export const validateLyricTimingProject = (project: LyricTimingProject): LyricTi
     if (phrase.endTimeMs !== null && !isNonNegativeInteger(phrase.endTimeMs)) {
       issues.push({ level: "error", code: "end-unit", message: "endTimeMs must be a non-negative integer or null.", path: `${path}.endTimeMs` });
     }
+    if (phrase.startTimeMs !== null && previousStartTimeMs !== null && phrase.startTimeMs <= previousStartTimeMs) {
+      issues.push({
+        level: "error",
+        code: "start-order",
+        message: "startTimeMs must increase in phrase order because export endTimeMs is derived from the next phrase startTimeMs.",
+        path: `${path}.startTimeMs`
+      });
+    }
     if (phrase.startTimeMs !== null && phrase.endTimeMs !== null && phrase.endTimeMs <= phrase.startTimeMs) {
-      issues.push({ level: "error", code: "end-before-start", message: "endTimeMs must be later than startTimeMs.", path });
+      issues.push({ level: "warning", code: "explicit-end-before-start", message: "Explicit endTimeMs is not later than startTimeMs and will be ignored when a derived export boundary is available.", path });
+    }
+    const nextPhrase = project.phrases[index + 1];
+    const derivedEndTimeMs = nextPhrase?.startTimeMs ?? (project.durationMs !== null ? project.durationMs : null);
+    if (
+      phrase.endTimeMs !== null &&
+      derivedEndTimeMs !== null &&
+      phrase.endTimeMs !== derivedEndTimeMs
+    ) {
+      issues.push({
+        level: "warning",
+        code: "explicit-end-derived-mismatch",
+        message: "Explicit endTimeMs differs from the derived contiguous phrase boundary and will not be used for export.",
+        path: `${path}.endTimeMs`
+      });
     }
     if (project.durationMs !== null && phrase.startTimeMs !== null && phrase.startTimeMs > project.durationMs) {
       issues.push({ level: "warning", code: "start-after-duration", message: "startTimeMs is later than project durationMs.", path: `${path}.startTimeMs` });
     }
+    if (phrase.startTimeMs !== null) previousStartTimeMs = phrase.startTimeMs;
   });
 
   return issues;
@@ -104,9 +128,9 @@ const computeEndTimeMs = (
   fallbackLastDurationMs: number
 ) => {
   if (phrase.startTimeMs === null) return null;
-  if (phrase.endTimeMs !== null) return phrase.endTimeMs;
   if (nextPhrase?.startTimeMs !== null && nextPhrase?.startTimeMs !== undefined) return nextPhrase.startTimeMs;
   if (projectDurationMs !== null && projectDurationMs > phrase.startTimeMs) return projectDurationMs;
+  if (phrase.endTimeMs !== null && phrase.endTimeMs > phrase.startTimeMs) return phrase.endTimeMs;
   return phrase.startTimeMs + fallbackLastDurationMs;
 };
 
@@ -147,6 +171,7 @@ export const makeLyricTimingExport = (
       startTimeMs: phrase.startTimeMs,
       endTimeMs,
       ...(options.includeLyrics ? { text: phrase.text } : {}),
+      ...(phrase.displayMode === "blank" ? { displayMode: "blank" as const } : {}),
       sourceLine: phrase.sourceLine
     });
   });

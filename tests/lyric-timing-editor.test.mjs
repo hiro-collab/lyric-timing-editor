@@ -53,6 +53,31 @@ test("Literal parse mode treats leading hash as lyric text", async () => {
   assert.equal(parsed.phrases[0].text, "# not a comment");
 });
 
+test("Blank phrase markers create intentional no-lyric phrases", async () => {
+  const { project, exportModule } = await loadLyricsModules();
+  const workbenchProject = project.createLyricTimingProject({
+    title: "Demo",
+    artist: "Tester",
+    durationMs: 10000,
+    lyricText: "first\n[blank]\nsecond"
+  });
+
+  assert.equal(workbenchProject.phrases.length, 3);
+  assert.equal(workbenchProject.phrases[1].text, "");
+  assert.equal(workbenchProject.phrases[1].displayMode, "blank");
+  assert.equal(workbenchProject.lines[1].displayMode, "blank");
+  assert.equal(exportModule.validateLyricTimingProject(workbenchProject).some((issue) => issue.code === "empty-phrase"), false);
+
+  workbenchProject.phrases[0].startTimeMs = 1000;
+  workbenchProject.phrases[1].startTimeMs = 3000;
+  workbenchProject.phrases[2].startTimeMs = 5000;
+  const result = exportModule.makeLyricTimingExport(workbenchProject, { includeLyrics: true, generatedAt: new Date(0) });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.exportData.phrases[1].displayMode, "blank");
+  assert.equal(result.exportData.phrases[1].text, "");
+});
+
 test("v2 export blocks incomplete phrases and omits text for timing-only export", async () => {
   const { project, exportModule } = await loadLyricsModules();
   const workbenchProject = project.createLyricTimingProject({
@@ -101,6 +126,30 @@ test("v2 export includes lyrics and lyric-specific rights notice when requested"
   assert.equal(result.exportData.includesLyrics, true);
   assert.equal(result.exportData.rightsNotice.includes("includes lyric text"), true);
   assert.equal(result.exportData.phrases[0].text, "first");
+});
+
+test("v2 export derives contiguous end times from the next phrase start", async () => {
+  const { project, exportModule } = await loadLyricsModules();
+  const workbenchProject = project.createLyricTimingProject({
+    title: "Demo",
+    artist: "Tester",
+    durationMs: 10000,
+    lyricText: "first\nsecond\nthird"
+  });
+  workbenchProject.phrases[0].startTimeMs = 1000;
+  workbenchProject.phrases[0].endTimeMs = 1500;
+  workbenchProject.phrases[1].startTimeMs = 4000;
+  workbenchProject.phrases[1].endTimeMs = 3500;
+  workbenchProject.phrases[2].startTimeMs = 7000;
+
+  const result = exportModule.makeLyricTimingExport(workbenchProject, { includeLyrics: false, generatedAt: new Date(0) });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.exportData.phrases[0].endTimeMs, 4000);
+  assert.equal(result.exportData.phrases[1].endTimeMs, 7000);
+  assert.equal(result.exportData.phrases[2].endTimeMs, 10000);
+  assert.equal(result.issues.some((issue) => issue.code === "explicit-end-derived-mismatch"), true);
+  assert.equal(result.issues.some((issue) => issue.code === "explicit-end-before-start"), true);
 });
 
 test("WebVTT and LRC exports use completed phrase timings", async () => {

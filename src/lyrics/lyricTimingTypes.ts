@@ -28,6 +28,7 @@ export type LyricTimingProjectLine = {
   rawText: string;
   text?: string;
   phraseId?: string;
+  displayMode?: "blank";
 };
 
 export type LyricTimingCharacter = {
@@ -52,6 +53,7 @@ export type LyricTimingPhrase = {
   index: number;
   sourceLine: number;
   text: string;
+  displayMode?: "blank";
   startTimeMs: number | null;
   endTimeMs: number | null;
   words?: LyricTimingWord[];
@@ -91,6 +93,7 @@ export type LyricTimingExportPhrase = {
   startTimeMs: number;
   endTimeMs: number;
   text?: string;
+  displayMode?: "blank";
   sourceLine: number;
 };
 

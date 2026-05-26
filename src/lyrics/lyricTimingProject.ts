@@ -192,6 +192,20 @@ const unescapeTextAliveHash = (trimmedLine: string) => (
   trimmedLine.startsWith("\\#") ? trimmedLine.slice(1) : trimmedLine
 );
 
+const BLANK_PHRASE_MARKERS = new Set([
+  "[blank]",
+  "[no lyrics]",
+  "[no lyric]",
+  "[nolyrics]",
+  "[instrumental]",
+  "[歌詞なし]",
+  "[無表示]"
+]);
+
+const isBlankPhraseMarker = (trimmedLine: string) => (
+  BLANK_PHRASE_MARKERS.has(trimmedLine.toLowerCase())
+);
+
 export const parseLyricText = (
   lyricText: string,
   options: ParseLyricTextOptions = {}
@@ -229,7 +243,8 @@ export const parseLyricText = (
 
     const phraseIndex = phrases.length;
     const phraseId = `phrase-${padId(phraseIndex + 1)}`;
-    const phraseText = mode === "textalive" ? unescapeTextAliveHash(trimmed) : trimmed;
+    const isBlankPhrase = isBlankPhraseMarker(trimmed);
+    const phraseText = isBlankPhrase ? "" : (mode === "textalive" ? unescapeTextAliveHash(trimmed) : trimmed);
 
     lines.push({
       id: `line-${padId(sourceLine)}`,
@@ -237,13 +252,15 @@ export const parseLyricText = (
       sourceLine,
       rawText,
       text: phraseText,
-      phraseId
+      phraseId,
+      ...(isBlankPhrase ? { displayMode: "blank" as const } : {})
     });
     phrases.push({
       id: phraseId,
       index: phraseIndex,
       sourceLine,
       text: phraseText,
+      ...(isBlankPhrase ? { displayMode: "blank" as const } : {}),
       startTimeMs: null,
       endTimeMs: null,
       words: []

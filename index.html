@@ -177,6 +177,11 @@
             <span id="playback-time">00:00.000</span>
             <span id="playback-duration">--:--.---</span>
           </div>
+          <div class="volume-control">
+            <label for="volume-slider" data-i18n="volume">Volume</label>
+            <input id="volume-slider" type="range" min="0" max="100" step="1" value="100" aria-label="Volume" />
+            <output id="volume-value" for="volume-slider">100%</output>
+          </div>
           <input id="seek-bar" type="range" min="0" max="0" step="1" value="0" aria-label="Playback position" />
           <div class="stamp-actions">
             <button id="stamp-current" type="button" class="solid-action">
@@ -206,7 +211,7 @@
               <button id="selection-clear" type="button" class="compact-action" data-i18n="clearSelection">Clear selection</button>
             </div>
           </div>
-          <div id="sequence-bar" class="sequence-bar"></div>
+          <div id="sequence-bar" class="sequence-bar" tabindex="0" role="slider" aria-label="Playback position"></div>
         </div>
       </section>
 

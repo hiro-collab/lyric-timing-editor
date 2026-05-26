@@ -27,6 +27,7 @@ It should not depend on Music Effect player DOM, Launch Manager, song packs, or 
 - `endTimeMs` in exports is a derived contiguous boundary: phrase N ends at phrase N+1 `startTimeMs`.
 - The final phrase ends at `durationMs` when available. If neither duration nor a valid explicit final `endTimeMs` is available, the exporter uses a short fallback duration so draft exports can still be inspected.
 - Project JSON may still contain explicit `endTimeMs` for compatibility with imported or older data, but downstream systems should treat exported `endTimeMs` as the normalized boundary.
+- `displayMode: "blank"` is the only defined display mode. Future display modes are export-contract changes and require `docs/export-formats.md` updates plus Music Effect coordination before use.
 
 ## Schemas
 
@@ -56,6 +57,8 @@ Parser modes:
 - `literal`: leading `#` is ordinary lyric text.
 
 Phrase IDs are stable generated IDs such as `phrase-0001`. Source line numbers are kept so the editor can show where each phrase came from.
+
+Blank/no-lyric markers such as `[blank]` create an intentional no-display phrase with an empty text value and the original source line number. Exporters keep that source line number for diagnostics and downstream matching.
 
 ## UI Priorities
 

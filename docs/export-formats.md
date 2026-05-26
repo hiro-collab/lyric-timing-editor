@@ -4,6 +4,14 @@ This document is the working contract for Lyric Timing Editor export files. It i
 
 Status: draft target specification, 2026-05-25.
 
+Export contract changes should be labeled when they are shared with downstream implementers:
+
+- `breaking`: Requires importer/player changes or makes previously valid exports invalid.
+- `compatible`: Keeps existing importers working, but changes validation, warnings, or recommended behavior.
+- `additive`: Adds optional fields, optional metadata, or optional examples that existing importers can ignore.
+
+Adding a new `displayMode` value is not treated as a casual additive change for Music Effect because it affects player display behavior. Update this document and coordinate downstream support before using any value other than `blank`.
+
 ## Common Rules
 
 - All exported text files use UTF-8 without BOM by default.
@@ -72,10 +80,10 @@ Music Effect v2 JSON is the primary machine-readable export for Music Effect / s
 - `id`: Stable phrase ID from the editor, such as `phrase-0001`.
 - `index`: Zero-based phrase index.
 - `startTimeMs`: Required integer start time in milliseconds.
-- `endTimeMs`: Required integer end time in milliseconds. It is derived by the exporter from the next phrase `startTimeMs`; for the final phrase it uses `durationMs` when available.
-- `sourceLine`: Source text line number used to create the phrase.
+- `endTimeMs`: Required integer end time in milliseconds. It is derived by the exporter from the next phrase `startTimeMs`; for the final phrase it uses `durationMs` when available. Phrase ranges are expected to be contiguous. Intentional gaps are not part of the current v2 contract; document and coordinate them before exporting gaps.
+- `sourceLine`: Source text line number used to create the phrase. Use the original 1-based source line for blank phrases as well. Use `0` only for a future importer-generated or synthesized phrase that has no source text origin.
 - `text`: Included only when `includesLyrics` is `true`.
-- `displayMode`: Optional. `blank` means the phrase is an intentional no-lyric display range, such as an intro, interlude, or outro.
+- `displayMode`: Optional. The only currently supported value is `blank`, meaning the phrase is an intentional no-lyric display range, such as an intro, interlude, or outro. Do not introduce additional values without first updating this document and coordinating downstream support.
 
 ### Timing-Only Export
 
@@ -99,6 +107,41 @@ Timing-only export omits lyric text:
 Downstream systems should join timing-only phrases with their own lyric lines by `index` or lyric order. This is the recommended format for public repositories when lyric rights are not confirmed.
 
 "Timing-only" means lyric text is omitted. It does not mean timings are optional; every exported phrase still needs `startTimeMs` and `endTimeMs`. Save unfinished work as Project JSON, or use the editor's explicit fill action to create temporary evenly spaced timings before export.
+
+Timing-only blank phrases still use `displayMode: "blank"`, omit `text`, and should keep the original source line number:
+
+```json
+{
+  "includesLyrics": false,
+  "phrases": [
+    {
+      "id": "phrase-0001",
+      "index": 0,
+      "startTimeMs": 0,
+      "endTimeMs": 12000,
+      "displayMode": "blank",
+      "sourceLine": 1
+    },
+    {
+      "id": "phrase-0002",
+      "index": 1,
+      "startTimeMs": 12000,
+      "endTimeMs": 16500,
+      "sourceLine": 2
+    },
+    {
+      "id": "phrase-0003",
+      "index": 2,
+      "startTimeMs": 16500,
+      "endTimeMs": 30000,
+      "displayMode": "blank",
+      "sourceLine": 3
+    }
+  ]
+}
+```
+
+This pattern covers intro, interlude, or outro ranges where the downstream player should clear the lyric display. In a lyric-included export, a blank phrase may include `text: ""`; in timing-only export, lyric text is always omitted.
 
 ### With-Lyrics Export
 

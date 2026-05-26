@@ -65,6 +65,7 @@ test("Blank phrase markers create intentional no-lyric phrases", async () => {
   assert.equal(workbenchProject.phrases.length, 3);
   assert.equal(workbenchProject.phrases[1].text, "");
   assert.equal(workbenchProject.phrases[1].displayMode, "blank");
+  assert.equal(workbenchProject.phrases[1].sourceLine, 2);
   assert.equal(workbenchProject.lines[1].displayMode, "blank");
   assert.equal(exportModule.validateLyricTimingProject(workbenchProject).some((issue) => issue.code === "empty-phrase"), false);
 
@@ -75,6 +76,7 @@ test("Blank phrase markers create intentional no-lyric phrases", async () => {
 
   assert.equal(result.ok, true);
   assert.equal(result.exportData.phrases[1].displayMode, "blank");
+  assert.equal(result.exportData.phrases[1].sourceLine, 2);
   assert.equal(result.exportData.phrases[1].text, "");
 });
 

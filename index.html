@@ -341,6 +341,34 @@
         </form>
       </dialog>
 
+      <dialog id="reparse-review-dialog" class="details-dialog reparse-dialog">
+        <form method="dialog">
+          <header>
+            <h2 data-i18n="reparseReviewTitle">Confirm lyric list update</h2>
+            <button id="reparse-review-close" type="button" class="icon-action" aria-label="Close">×</button>
+          </header>
+          <div class="reparse-review-body">
+            <p class="reparse-review-intro" data-i18n="reparseReviewIntro">Timing transfer needs review.</p>
+            <p class="reparse-review-undo" data-i18n="reparseReviewUndoHint">You can undo this update with Ctrl+Z after applying.</p>
+            <div id="reparse-review-summary" class="reparse-review-summary"></div>
+            <section class="reparse-review-section">
+              <h3 data-i18n="reparseProblemsTitle">Timings that need manual review</h3>
+              <div id="reparse-review-problems" class="reparse-review-problems"></div>
+            </section>
+            <details class="reparse-diff-details">
+              <summary data-i18n="reparseFullDiffSummary">Show full diff</summary>
+              <div id="reparse-review-diff" class="reparse-review-diff"></div>
+            </details>
+            <div class="reparse-review-actions">
+              <button id="reparse-adopt-auto" type="button" data-i18n="reparseAdoptAuto">Adopt all auto candidates</button>
+              <button id="reparse-accept-unassigned" type="button" data-i18n="reparseAcceptUnassigned">Treat unassigned as unmarked</button>
+              <button id="reparse-review-cancel" type="button" data-i18n="reparseCancel">Cancel</button>
+              <button id="reparse-review-apply" type="button" class="solid-action" data-i18n="reparseApply">Apply</button>
+            </div>
+          </div>
+        </form>
+      </dialog>
+
       <dialog id="help-dialog" class="details-dialog">
         <form method="dialog">
           <header>

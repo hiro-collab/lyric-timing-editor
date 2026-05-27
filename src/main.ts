@@ -4,7 +4,6 @@ import {
   makeLyricTimingExport,
   makeWebVttExport,
   normalizeLyricTimingProjectInput,
-  transferReparsedPhraseTiming,
   updateLyricTimingProjectMetadata,
   validateLyricTimingProject,
   type LyricTimingIssue,
@@ -40,6 +39,7 @@ type ParseLyricsOptions = {
   selectPhraseIndex?: number;
   focusMode?: FocusMode;
   statusKey?: string;
+  skipTimingReview?: boolean;
 };
 type AutoSaveStatus = "idle" | "pending" | "saving" | "saved" | "error" | "unavailable";
 type SaveFilePickerOptionsLike = {
@@ -55,6 +55,33 @@ type FileSystemWritableFileStreamLike = {
 };
 type FileSystemFileHandleLike = {
   createWritable: () => Promise<FileSystemWritableFileStreamLike>;
+};
+type ReparseReviewReason = "unassigned" | "duplicate" | "near";
+type ReparseCandidateKind = "exact" | "near" | "splitMerge" | "new";
+type ReparseCandidate = {
+  nextIndex: number;
+  kind: ReparseCandidateKind;
+};
+type ReparseIssue = {
+  previousIndex: number;
+  reasons: Set<ReparseReviewReason>;
+  candidates: ReparseCandidate[];
+  autoNextIndex: number | null;
+  selectedNextIndex: number | null;
+};
+type ReparseReviewPlan = {
+  previousProject: LyricTimingProject;
+  nextProject: LyricTimingProject;
+  options: ParseLyricsOptions;
+  exactPreviousToNext: Map<number, number>;
+  issues: ReparseIssue[];
+  newUntimedNextIndexes: number[];
+};
+type ReparseStats = {
+  autoKept: number;
+  newUntimed: number;
+  needsReview: number;
+  unassignedTimed: number;
 };
 type TrackGeometry = {
   left: number;
@@ -342,6 +369,35 @@ const i18n: Record<Language, Record<string, string>> = {
     exportReadinessMissingTiming: "Export前に未打刻を解消してください。シーケンスバーの未打刻の点が残っています。未打刻: {count}件。",
     exportReadinessValidationIssue: "Export前に検証エラーを確認してください。",
     exportBlockedMissingTiming: "Exportには全フレーズのstartTimeMsが必要です。未打刻が{count}件あります。選択バーの「未打刻も含めて均一配置」で仮配置するか、打刻後に再度Exportしてください。途中作業は作業JSON保存で保存できます。",
+    reparseReviewTitle: "歌詞リスト反映の確認",
+    reparseReviewIntro: "打刻の引き継ぎに確認が必要です。旧打刻ごとに、新しい歌詞リストで残す行を選んでください。",
+    reparseReviewUndoHint: "反映後は Ctrl+Z で元に戻せます。",
+    reparseAutoKept: "自動引き継ぎ",
+    reparseNewUntimed: "新規未打刻",
+    reparseNeedsReview: "手動確認",
+    reparseUnassignedTimed: "未割当の旧打刻",
+    reparseProblemsTitle: "手動確認が必要な打刻",
+    reparseOldPhraseLabel: "旧 #{index} {time}",
+    reparseMoveTargetLabel: "移動先",
+    reparseNoTarget: "未割当にする",
+    reparseReasonUnassigned: "引き継ぎ先なし",
+    reparseReasonDuplicate: "同じ歌詞が曖昧",
+    reparseReasonNear: "近似候補あり",
+    reparseCandidateExact: "自動候補",
+    reparseCandidateNear: "近似候補",
+    reparseCandidateSplitMerge: "分割/結合候補",
+    reparseCandidateNew: "新規未打刻",
+    reparseFullDiffSummary: "全体差分を表示",
+    reparseDiffAuto: "自動",
+    reparseDiffReview: "確認",
+    reparseDiffNew: "新規未打刻",
+    reparseDiffUnassigned: "引き継がれません",
+    reparseAdoptAuto: "自動候補をすべて採用",
+    reparseAcceptUnassigned: "未割当を未打刻として扱う",
+    reparseApply: "反映する",
+    reparseCancel: "キャンセル",
+    reparseUnassignedConfirm: "未割当の旧打刻が {count} 件あります。この旧行の打刻は引き継がれません。反映しますか?",
+    reparseReviewCanceled: "歌詞リスト反映をキャンセルしました",
     exportMenuClosed: "Exportメニューを閉じました"
   },
   en: {
@@ -561,6 +617,35 @@ const i18n: Record<Language, Record<string, string>> = {
     exportReadinessMissingTiming: "Resolve unmarked phrases before export. Unmarked dots remain in the sequence bar. Unmarked: {count}.",
     exportReadinessValidationIssue: "Check validation errors before export.",
     exportBlockedMissingTiming: "Export requires startTimeMs for every phrase. {count} phrases are unmarked. Use Even with unmarked in the selection bar, or stamp timings before exporting again. Save incomplete work with Work Project Save.",
+    reparseReviewTitle: "Confirm lyric list update",
+    reparseReviewIntro: "Timing transfer needs review. For each old timing, choose the row where it should remain in the new lyric list.",
+    reparseReviewUndoHint: "You can undo this update with Ctrl+Z after applying.",
+    reparseAutoKept: "Auto kept",
+    reparseNewUntimed: "New unmarked",
+    reparseNeedsReview: "Needs review",
+    reparseUnassignedTimed: "Unassigned old timings",
+    reparseProblemsTitle: "Timings that need manual review",
+    reparseOldPhraseLabel: "Old #{index} {time}",
+    reparseMoveTargetLabel: "Move to",
+    reparseNoTarget: "Leave unassigned",
+    reparseReasonUnassigned: "No transfer target",
+    reparseReasonDuplicate: "Repeated lyric is ambiguous",
+    reparseReasonNear: "Near match available",
+    reparseCandidateExact: "Auto candidate",
+    reparseCandidateNear: "Near match",
+    reparseCandidateSplitMerge: "Split/merge candidate",
+    reparseCandidateNew: "New unmarked",
+    reparseFullDiffSummary: "Show full diff",
+    reparseDiffAuto: "Auto",
+    reparseDiffReview: "Review",
+    reparseDiffNew: "New unmarked",
+    reparseDiffUnassigned: "Not transferred",
+    reparseAdoptAuto: "Adopt all auto candidates",
+    reparseAcceptUnassigned: "Treat unassigned as unmarked",
+    reparseApply: "Apply",
+    reparseCancel: "Cancel",
+    reparseUnassignedConfirm: "{count} old timings are still unassigned. Those old row timings will not be transferred. Apply anyway?",
+    reparseReviewCanceled: "Lyric list update canceled",
     exportMenuClosed: "Export menu closed"
   }
 };
@@ -613,6 +698,15 @@ const elements = {
   languageToggle: byId<HTMLButtonElement>("language-toggle"),
   helpOpen: byId<HTMLButtonElement>("help-open"),
   clearLocalData: byId<HTMLButtonElement>("clear-local-data"),
+  reparseReviewDialog: byId<HTMLDialogElement>("reparse-review-dialog"),
+  reparseReviewClose: byId<HTMLButtonElement>("reparse-review-close"),
+  reparseReviewSummary: byId<HTMLElement>("reparse-review-summary"),
+  reparseReviewProblems: byId<HTMLElement>("reparse-review-problems"),
+  reparseReviewDiff: byId<HTMLElement>("reparse-review-diff"),
+  reparseAdoptAuto: byId<HTMLButtonElement>("reparse-adopt-auto"),
+  reparseAcceptUnassigned: byId<HTMLButtonElement>("reparse-accept-unassigned"),
+  reparseReviewCancel: byId<HTMLButtonElement>("reparse-review-cancel"),
+  reparseReviewApply: byId<HTMLButtonElement>("reparse-review-apply"),
   helpDialog: byId<HTMLDialogElement>("help-dialog"),
   projectDetails: byId<HTMLButtonElement>("project-details"),
   projectDetailsDialog: byId<HTMLDialogElement>("project-details-dialog"),
@@ -690,6 +784,8 @@ let autoSaveTimer: number | null = null;
 let pendingDraft: AutoSaveDraft | null = null;
 let availableDraft: AutoSaveDraft | null = null;
 let lastAutoSaveKey = "";
+let pendingReparseReview: ReparseReviewPlan | null = null;
+let pendingReparseAcceptsUnassigned = false;
 let projectSaveFileHandle: FileSystemFileHandleLike | null = null;
 let lyricsTextSaveFileHandle: FileSystemFileHandleLike | null = null;
 const undoStack: Snapshot[] = [];
@@ -991,6 +1087,202 @@ const phraseHasTiming = (phrase: LyricTimingPhrase) => (
   phrase.endTimeMs !== null ||
   (phrase.words ?? []).some((word) => word.startTimeMs !== null || word.endTimeMs !== null)
 );
+
+const copyPhraseTimingForReview = (phrase: LyricTimingPhrase, previous: LyricTimingPhrase): LyricTimingPhrase => ({
+  ...phrase,
+  startTimeMs: previous.startTimeMs,
+  endTimeMs: previous.endTimeMs,
+  words: structuredClone(previous.words ?? [])
+});
+
+const reparsePhraseSignature = (phrase: LyricTimingPhrase) => [
+  phrase.displayMode ?? "text",
+  phrase.text.trim()
+].join("\u0000");
+
+const normalizeReparseText = (value: string) => (
+  value.normalize("NFKC").toLowerCase().replace(/[\s\p{P}]/gu, "")
+);
+
+const reparsePhraseNearSignature = (phrase: LyricTimingPhrase) => [
+  phrase.displayMode ?? "text",
+  normalizeReparseText(phrase.text)
+].join("\u0000");
+
+const matchReparsePhraseSignatures = (previousPhrases: LyricTimingPhrase[], nextPhrases: LyricTimingPhrase[]) => {
+  const previousSignatures = previousPhrases.map(reparsePhraseSignature);
+  const nextSignatures = nextPhrases.map(reparsePhraseSignature);
+  const width = nextSignatures.length + 1;
+  const scores = new Uint16Array((previousSignatures.length + 1) * width);
+
+  for (let previousIndex = previousSignatures.length - 1; previousIndex >= 0; previousIndex -= 1) {
+    for (let nextIndex = nextSignatures.length - 1; nextIndex >= 0; nextIndex -= 1) {
+      const scoreIndex = previousIndex * width + nextIndex;
+      scores[scoreIndex] = previousSignatures[previousIndex] === nextSignatures[nextIndex]
+        ? scores[(previousIndex + 1) * width + nextIndex + 1] + 1
+        : Math.max(scores[(previousIndex + 1) * width + nextIndex], scores[scoreIndex + 1]);
+    }
+  }
+
+  const matches = new Map<number, number>();
+  let previousIndex = 0;
+  let nextIndex = 0;
+  while (previousIndex < previousSignatures.length && nextIndex < nextSignatures.length) {
+    if (previousSignatures[previousIndex] === nextSignatures[nextIndex]) {
+      matches.set(previousIndex, nextIndex);
+      previousIndex += 1;
+      nextIndex += 1;
+      continue;
+    }
+    if (scores[(previousIndex + 1) * width + nextIndex] > scores[previousIndex * width + nextIndex + 1]) {
+      previousIndex += 1;
+    } else {
+      nextIndex += 1;
+    }
+  }
+  return matches;
+};
+
+const countBySignature = (phrases: LyricTimingPhrase[]) => {
+  const counts = new Map<string, number>();
+  for (const phrase of phrases) {
+    const signature = reparsePhraseSignature(phrase);
+    counts.set(signature, (counts.get(signature) ?? 0) + 1);
+  }
+  return counts;
+};
+
+const consecutiveDuplicateSignatures = (phrases: LyricTimingPhrase[]) => {
+  const signatures = new Set<string>();
+  for (let index = 1; index < phrases.length; index += 1) {
+    const signature = reparsePhraseSignature(phrases[index]);
+    if (signature === reparsePhraseSignature(phrases[index - 1])) signatures.add(signature);
+  }
+  return signatures;
+};
+
+const duplicateReviewSignatures = (previousProject: LyricTimingProject, nextProject: LyricTimingProject) => {
+  const signatures = new Set<string>();
+  const previousCounts = countBySignature(previousProject.phrases);
+  const nextCounts = countBySignature(nextProject.phrases);
+  for (const signature of consecutiveDuplicateSignatures(previousProject.phrases)) signatures.add(signature);
+  for (const signature of consecutiveDuplicateSignatures(nextProject.phrases)) signatures.add(signature);
+  for (const [signature, previousCount] of previousCounts) {
+    const nextCount = nextCounts.get(signature) ?? 0;
+    if ((previousCount > 1 || nextCount > 1) && previousCount !== nextCount) signatures.add(signature);
+  }
+  for (const [signature, nextCount] of nextCounts) {
+    const previousCount = previousCounts.get(signature) ?? 0;
+    if ((previousCount > 1 || nextCount > 1) && previousCount !== nextCount) signatures.add(signature);
+  }
+  return signatures;
+};
+
+const candidatePriority = (kind: ReparseCandidateKind) => {
+  switch (kind) {
+    case "exact":
+      return 0;
+    case "near":
+      return 1;
+    case "splitMerge":
+      return 2;
+    case "new":
+      return 3;
+  }
+};
+
+const addReparseCandidate = (
+  candidates: Map<number, ReparseCandidate>,
+  nextIndex: number,
+  kind: ReparseCandidateKind
+) => {
+  const existing = candidates.get(nextIndex);
+  if (!existing || candidatePriority(kind) < candidatePriority(existing.kind)) {
+    candidates.set(nextIndex, { nextIndex, kind });
+  }
+};
+
+const reparseIssueCandidates = (
+  previousPhrase: LyricTimingPhrase,
+  nextProject: LyricTimingProject,
+  exactNextIndexes: Set<number>,
+  autoNextIndex: number | null
+) => {
+  const candidates = new Map<number, ReparseCandidate>();
+  const exactSignature = reparsePhraseSignature(previousPhrase);
+  const nearSignature = reparsePhraseNearSignature(previousPhrase);
+  const previousNormalized = normalizeReparseText(previousPhrase.text);
+
+  if (autoNextIndex !== null) addReparseCandidate(candidates, autoNextIndex, "exact");
+
+  nextProject.phrases.forEach((nextPhrase, nextIndex) => {
+    const nextExactSignature = reparsePhraseSignature(nextPhrase);
+    const nextNearSignature = reparsePhraseNearSignature(nextPhrase);
+    const nextNormalized = normalizeReparseText(nextPhrase.text);
+    if (nextExactSignature === exactSignature) {
+      addReparseCandidate(candidates, nextIndex, "exact");
+      return;
+    }
+    if (nextNearSignature === nearSignature && previousNormalized && nextNormalized) {
+      addReparseCandidate(candidates, nextIndex, "near");
+      return;
+    }
+    if (
+      previousPhrase.displayMode === nextPhrase.displayMode &&
+      previousNormalized &&
+      nextNormalized &&
+      (previousNormalized.includes(nextNormalized) || nextNormalized.includes(previousNormalized))
+    ) {
+      addReparseCandidate(candidates, nextIndex, "splitMerge");
+      return;
+    }
+    if (!exactNextIndexes.has(nextIndex)) {
+      addReparseCandidate(candidates, nextIndex, "new");
+    }
+  });
+
+  return [...candidates.values()].sort((a, b) => a.nextIndex - b.nextIndex || candidatePriority(a.kind) - candidatePriority(b.kind));
+};
+
+const buildReparseReviewPlan = (
+  previousProject: LyricTimingProject,
+  nextProject: LyricTimingProject,
+  options: ParseLyricsOptions
+): ReparseReviewPlan => {
+  const exactPreviousToNext = matchReparsePhraseSignatures(previousProject.phrases, nextProject.phrases);
+  const exactNextIndexes = new Set(exactPreviousToNext.values());
+  const duplicateSignatures = duplicateReviewSignatures(previousProject, nextProject);
+  const issues: ReparseIssue[] = [];
+
+  previousProject.phrases.forEach((previousPhrase, previousIndex) => {
+    if (!phraseHasTiming(previousPhrase)) return;
+    const autoNextIndex = exactPreviousToNext.get(previousIndex) ?? null;
+    const reasons = new Set<ReparseReviewReason>();
+    if (autoNextIndex === null) reasons.add("unassigned");
+    if (duplicateSignatures.has(reparsePhraseSignature(previousPhrase))) reasons.add("duplicate");
+    const candidates = reparseIssueCandidates(previousPhrase, nextProject, exactNextIndexes, autoNextIndex);
+    if (candidates.some((candidate) => candidate.kind === "near" || candidate.kind === "splitMerge")) reasons.add("near");
+    if (!reasons.size) return;
+    issues.push({
+      previousIndex,
+      reasons,
+      candidates,
+      autoNextIndex,
+      selectedNextIndex: autoNextIndex
+    });
+  });
+
+  return {
+    previousProject,
+    nextProject,
+    options,
+    exactPreviousToNext,
+    issues,
+    newUntimedNextIndexes: nextProject.phrases
+      .map((_, index) => index)
+      .filter((index) => !exactNextIndexes.has(index))
+  };
+};
 
 const projectHasAnyTiming = () => project.phrases.some(phraseHasTiming);
 
@@ -1357,6 +1649,233 @@ const phraseEditorLabel = (phrase: LyricTimingPhrase) => (
 const formatDuration = (valueMs: number | null | undefined) => (
   valueMs === null || valueMs === undefined ? text("durationUnknown") : `${formatClock(valueMs)} / ${valueMs} ms`
 );
+
+const reparseCandidateLabelKey = (kind: ReparseCandidateKind) => {
+  switch (kind) {
+    case "exact":
+      return "reparseCandidateExact";
+    case "near":
+      return "reparseCandidateNear";
+    case "splitMerge":
+      return "reparseCandidateSplitMerge";
+    case "new":
+      return "reparseCandidateNew";
+  }
+};
+
+const reparseReasonLabelKey = (reason: ReparseReviewReason) => {
+  switch (reason) {
+    case "unassigned":
+      return "reparseReasonUnassigned";
+    case "duplicate":
+      return "reparseReasonDuplicate";
+    case "near":
+      return "reparseReasonNear";
+  }
+};
+
+const phraseDiffLabel = (phrase: LyricTimingPhrase) => (
+  `${phrase.displayMode === "blank" ? text("blankPhraseLabel") : phrase.text || text("blankPhraseLabel")}`
+);
+
+const candidateOptionLabel = (plan: ReparseReviewPlan, candidate: ReparseCandidate) => {
+  const phrase = plan.nextProject.phrases[candidate.nextIndex];
+  return `#${candidate.nextIndex + 1} ${phraseDiffLabel(phrase)} (${text(reparseCandidateLabelKey(candidate.kind))})`;
+};
+
+const reviewIssuePreviousIndexes = (plan: ReparseReviewPlan) => (
+  new Set(plan.issues.map((issue) => issue.previousIndex))
+);
+
+const currentReparseNextToPrevious = (plan: ReparseReviewPlan) => {
+  const issuePreviousIndexes = reviewIssuePreviousIndexes(plan);
+  const nextToPrevious = new Map<number, number>();
+  for (const [previousIndex, nextIndex] of plan.exactPreviousToNext) {
+    if (!issuePreviousIndexes.has(previousIndex)) nextToPrevious.set(nextIndex, previousIndex);
+  }
+  for (const issue of plan.issues) {
+    if (issue.selectedNextIndex !== null) nextToPrevious.set(issue.selectedNextIndex, issue.previousIndex);
+  }
+  return nextToPrevious;
+};
+
+const reparseStats = (plan: ReparseReviewPlan): ReparseStats => {
+  const issuePreviousIndexes = reviewIssuePreviousIndexes(plan);
+  const nextToPrevious = currentReparseNextToPrevious(plan);
+  const autoKept = [...plan.exactPreviousToNext]
+    .filter(([previousIndex]) => !issuePreviousIndexes.has(previousIndex))
+    .filter(([previousIndex]) => phraseHasTiming(plan.previousProject.phrases[previousIndex]))
+    .length;
+  const unassignedTimed = plan.issues
+    .filter((issue) => issue.selectedNextIndex === null)
+    .filter((issue) => phraseHasTiming(plan.previousProject.phrases[issue.previousIndex]))
+    .length;
+  return {
+    autoKept,
+    newUntimed: plan.nextProject.phrases.length - nextToPrevious.size,
+    needsReview: plan.issues.length,
+    unassignedTimed
+  };
+};
+
+const createReparseStat = (labelKey: string, value: number) => {
+  const item = document.createElement("div");
+  const valueElement = document.createElement("strong");
+  valueElement.textContent = String(value);
+  const label = document.createElement("span");
+  label.textContent = text(labelKey);
+  item.append(valueElement, label);
+  return item;
+};
+
+const renderReparseReviewSummary = (plan: ReparseReviewPlan) => {
+  const stats = reparseStats(plan);
+  elements.reparseReviewSummary.replaceChildren(
+    createReparseStat("reparseAutoKept", stats.autoKept),
+    createReparseStat("reparseNewUntimed", stats.newUntimed),
+    createReparseStat("reparseNeedsReview", stats.needsReview),
+    createReparseStat("reparseUnassignedTimed", stats.unassignedTimed)
+  );
+};
+
+const setIssueSelectedNextIndex = (plan: ReparseReviewPlan, previousIndex: number, nextIndex: number | null) => {
+  const issue = plan.issues.find((candidateIssue) => candidateIssue.previousIndex === previousIndex);
+  if (!issue) return;
+  if (nextIndex !== null) {
+    for (const otherIssue of plan.issues) {
+      if (otherIssue.previousIndex !== previousIndex && otherIssue.selectedNextIndex === nextIndex) {
+        otherIssue.selectedNextIndex = null;
+      }
+    }
+  }
+  issue.selectedNextIndex = nextIndex;
+  pendingReparseAcceptsUnassigned = false;
+};
+
+const renderReparseProblemRow = (plan: ReparseReviewPlan, issue: ReparseIssue) => {
+  const previousPhrase = plan.previousProject.phrases[issue.previousIndex];
+  const row = document.createElement("article");
+  row.className = "reparse-problem";
+
+  const oldBlock = document.createElement("div");
+  oldBlock.className = "reparse-old";
+  const oldMeta = document.createElement("strong");
+  oldMeta.textContent = text("reparseOldPhraseLabel", {
+    index: issue.previousIndex + 1,
+    time: formatTimeCell(previousPhrase.startTimeMs)
+  });
+  const oldText = document.createElement("p");
+  oldText.textContent = phraseDiffLabel(previousPhrase);
+  const reasons = document.createElement("div");
+  reasons.className = "reparse-reasons";
+  for (const reason of issue.reasons) {
+    const badge = document.createElement("span");
+    badge.textContent = text(reparseReasonLabelKey(reason));
+    reasons.append(badge);
+  }
+  oldBlock.append(oldMeta, oldText, reasons);
+
+  const selectLabel = document.createElement("label");
+  selectLabel.className = "reparse-target";
+  const selectTitle = document.createElement("span");
+  selectTitle.textContent = text("reparseMoveTargetLabel");
+  const select = document.createElement("select");
+  select.dataset.previousIndex = String(issue.previousIndex);
+  const noTarget = document.createElement("option");
+  noTarget.value = "";
+  noTarget.textContent = text("reparseNoTarget");
+  select.append(noTarget);
+  for (const candidate of issue.candidates) {
+    const option = document.createElement("option");
+    option.value = String(candidate.nextIndex);
+    option.textContent = candidateOptionLabel(plan, candidate);
+    select.append(option);
+  }
+  select.value = issue.selectedNextIndex === null ? "" : String(issue.selectedNextIndex);
+  select.addEventListener("change", () => {
+    const selectedValue = select.value ? Number(select.value) : null;
+    setIssueSelectedNextIndex(plan, issue.previousIndex, selectedValue);
+    renderReparseReview(plan);
+  });
+  selectLabel.append(selectTitle, select);
+
+  row.append(oldBlock, selectLabel);
+  return row;
+};
+
+const renderReparseReviewProblems = (plan: ReparseReviewPlan) => {
+  elements.reparseReviewProblems.replaceChildren(...plan.issues.map((issue) => renderReparseProblemRow(plan, issue)));
+};
+
+const createDiffPhraseCell = (label: string, phrase: LyricTimingPhrase | null, time: string | null) => {
+  const cell = document.createElement("div");
+  cell.className = "reparse-diff-cell";
+  const meta = document.createElement("strong");
+  meta.textContent = label;
+  const body = document.createElement("p");
+  body.textContent = phrase ? phraseDiffLabel(phrase) : "--";
+  const timeElement = document.createElement("span");
+  timeElement.textContent = time ?? "";
+  cell.append(meta, body, timeElement);
+  return cell;
+};
+
+const createDiffStatus = (labelKey: string, state: string) => {
+  const status = document.createElement("span");
+  status.className = `reparse-diff-status is-${state}`;
+  status.textContent = text(labelKey);
+  return status;
+};
+
+const renderReparseReviewDiff = (plan: ReparseReviewPlan) => {
+  const nextToPrevious = currentReparseNextToPrevious(plan);
+  const issuePreviousIndexes = reviewIssuePreviousIndexes(plan);
+  const usedPreviousIndexes = new Set(nextToPrevious.values());
+  const rows: HTMLElement[] = [];
+
+  plan.nextProject.phrases.forEach((nextPhrase, nextIndex) => {
+    const previousIndex = nextToPrevious.get(nextIndex);
+    const row = document.createElement("div");
+    row.className = "reparse-diff-row";
+    if (previousIndex === undefined) {
+      row.append(
+        createDiffPhraseCell("旧 --", null, null),
+        createDiffStatus("reparseDiffNew", "new"),
+        createDiffPhraseCell(`新 #${nextIndex + 1}`, nextPhrase, formatTimeCell(null))
+      );
+    } else {
+      const previousPhrase = plan.previousProject.phrases[previousIndex];
+      const isReview = issuePreviousIndexes.has(previousIndex);
+      row.append(
+        createDiffPhraseCell(`旧 #${previousIndex + 1}`, previousPhrase, formatTimeCell(previousPhrase.startTimeMs)),
+        createDiffStatus(isReview ? "reparseDiffReview" : "reparseDiffAuto", isReview ? "review" : "auto"),
+        createDiffPhraseCell(`新 #${nextIndex + 1}`, nextPhrase, formatTimeCell(previousPhrase.startTimeMs))
+      );
+    }
+    rows.push(row);
+  });
+
+  plan.previousProject.phrases.forEach((previousPhrase, previousIndex) => {
+    if (usedPreviousIndexes.has(previousIndex) || !phraseHasTiming(previousPhrase)) return;
+    const row = document.createElement("div");
+    row.className = "reparse-diff-row";
+    row.append(
+      createDiffPhraseCell(`旧 #${previousIndex + 1}`, previousPhrase, formatTimeCell(previousPhrase.startTimeMs)),
+      createDiffStatus("reparseDiffUnassigned", "unassigned"),
+      createDiffPhraseCell("新 --", null, null)
+    );
+    rows.push(row);
+  });
+
+  elements.reparseReviewDiff.replaceChildren(...rows);
+};
+
+const renderReparseReview = (plan: ReparseReviewPlan) => {
+  renderReparseReviewSummary(plan);
+  renderReparseReviewProblems(plan);
+  renderReparseReviewDiff(plan);
+  elements.reparseAcceptUnassigned.setAttribute("aria-pressed", pendingReparseAcceptsUnassigned ? "true" : "false");
+};
 
 const getKnownDurationMs = () => {
   if (project.durationMs !== null) return project.durationMs;
@@ -2035,6 +2554,65 @@ const showExportIssues = (issues: LyricTimingIssue[]) => {
   setValidationDisplay("error", message, text("exportReadinessValidationIssue"));
 };
 
+const applyReparsePlan = (plan: ReparseReviewPlan) => {
+  const nextToPrevious = currentReparseNextToPrevious(plan);
+  let kept = 0;
+  if (plan.previousProject.phrases.length || plan.previousProject.phrases.some(phraseHasTiming)) pushUndo();
+  project = {
+    ...plan.nextProject,
+    phrases: plan.nextProject.phrases.map((phrase, nextIndex) => {
+      const previousIndex = nextToPrevious.get(nextIndex);
+      if (previousIndex === undefined) return phrase;
+      const previous = plan.previousProject.phrases[previousIndex];
+      if (phraseHasTiming(previous)) kept += 1;
+      return copyPhraseTimingForReview(phrase, previous);
+    })
+  };
+  selectedPhraseIndex = Math.max(
+    0,
+    Math.min(plan.options.selectPhraseIndex ?? selectedPhraseIndex, Math.max(0, project.phrases.length - 1))
+  );
+  focusMode = plan.options.focusMode ?? "follow";
+  clearSelection();
+  const statusKey = plan.options.statusKey ?? (plan.previousProject.phrases.some(phraseHasTiming) ? "lyricsParsedWithTiming" : "lyricsParsed");
+  setStatus(statusKey, {
+    count: project.phrases.length,
+    kept
+  });
+  queueAutoSave();
+};
+
+const showReparseReview = (plan: ReparseReviewPlan) => {
+  pendingReparseReview = plan;
+  pendingReparseAcceptsUnassigned = false;
+  renderReparseReview(plan);
+  elements.reparseReviewDialog.showModal();
+};
+
+const cancelReparseReview = () => {
+  pendingReparseReview = null;
+  pendingReparseAcceptsUnassigned = false;
+  if (elements.reparseReviewDialog.open) elements.reparseReviewDialog.close();
+  setStatus("reparseReviewCanceled");
+};
+
+const applyPendingReparseReview = () => {
+  const plan = pendingReparseReview;
+  if (!plan) return;
+  const unresolvedCount = reparseStats(plan).unassignedTimed;
+  if (
+    unresolvedCount > 0 &&
+    !pendingReparseAcceptsUnassigned &&
+    !window.confirm(text("reparseUnassignedConfirm", { count: unresolvedCount }))
+  ) {
+    return;
+  }
+  pendingReparseReview = null;
+  pendingReparseAcceptsUnassigned = false;
+  if (elements.reparseReviewDialog.open) elements.reparseReviewDialog.close();
+  applyReparsePlan(plan);
+};
+
 const parseLyrics = (options: ParseLyricsOptions = {}) => {
   if (utf8ByteLength(elements.lyricsText.value) > MAX_LYRIC_TEXT_BYTES) {
     setStatus("sourceTextTooLarge", { limit: formatBytes(MAX_LYRIC_TEXT_BYTES) });
@@ -2052,21 +2630,12 @@ const parseLyrics = (options: ParseLyricsOptions = {}) => {
     setStatus("tooManyPhrases", { limit: MAX_LYRIC_PHRASES });
     return;
   }
-  const transferred = transferReparsedPhraseTiming(previousProject, nextProject);
-  if (previousProject.phrases.length || projectHasAnyTiming()) pushUndo();
-  project = transferred.project;
-  selectedPhraseIndex = Math.max(
-    0,
-    Math.min(options.selectPhraseIndex ?? selectedPhraseIndex, Math.max(0, project.phrases.length - 1))
-  );
-  focusMode = options.focusMode ?? "follow";
-  clearSelection();
-  const statusKey = options.statusKey ?? (previousProject.phrases.some(phraseHasTiming) ? "lyricsParsedWithTiming" : "lyricsParsed");
-  setStatus(statusKey, {
-    count: project.phrases.length,
-    kept: transferred.kept
-  });
-  queueAutoSave();
+  const reviewPlan = buildReparseReviewPlan(previousProject, nextProject, options);
+  if (!options.skipTimingReview && reviewPlan.issues.length > 0) {
+    showReparseReview(reviewPlan);
+    return;
+  }
+  applyReparsePlan(reviewPlan);
 };
 
 const insertBlankLineAtCursor = () => {
@@ -2872,6 +3441,28 @@ elements.exportWebVtt.addEventListener("click", exportWebVtt);
 elements.exportLrc.addEventListener("click", exportLrc);
 elements.projectDetails.addEventListener("click", () => elements.projectDetailsDialog.showModal());
 elements.helpOpen.addEventListener("click", () => elements.helpDialog.showModal());
+elements.reparseReviewDialog.addEventListener("cancel", (event) => {
+  event.preventDefault();
+  cancelReparseReview();
+});
+elements.reparseReviewClose.addEventListener("click", cancelReparseReview);
+elements.reparseReviewCancel.addEventListener("click", cancelReparseReview);
+elements.reparseReviewApply.addEventListener("click", applyPendingReparseReview);
+elements.reparseAdoptAuto.addEventListener("click", () => {
+  const plan = pendingReparseReview;
+  if (!plan) return;
+  for (const issue of plan.issues) {
+    if (issue.autoNextIndex !== null) setIssueSelectedNextIndex(plan, issue.previousIndex, issue.autoNextIndex);
+  }
+  pendingReparseAcceptsUnassigned = false;
+  renderReparseReview(plan);
+});
+elements.reparseAcceptUnassigned.addEventListener("click", () => {
+  const plan = pendingReparseReview;
+  if (!plan) return;
+  pendingReparseAcceptsUnassigned = true;
+  renderReparseReview(plan);
+});
 elements.restoreDraft.addEventListener("click", restoreAutoSaveDraft);
 elements.downloadDraft.addEventListener("click", downloadAutoSaveDraft);
 elements.clearLocalData.addEventListener("click", () => {

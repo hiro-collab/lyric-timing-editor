@@ -34,6 +34,11 @@ export type ParsedLyricText = {
   phrases: LyricTimingPhrase[];
 };
 
+export type TransferReparsedPhraseTimingResult = {
+  project: LyricTimingProject;
+  kept: number;
+};
+
 export type NormalizeLyricTimingProjectInputResult =
   | { ok: true; project: LyricTimingProject }
   | {
@@ -120,6 +125,59 @@ const normalizeAudioRef = (value: LyricTimingAudioRef | UnknownRecord | undefine
 const normalizeIntegerField = (value: unknown) => (
   typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : undefined
 );
+
+const phraseHasTiming = (phrase: LyricTimingPhrase) => (
+  phrase.startTimeMs !== null ||
+  phrase.endTimeMs !== null ||
+  (phrase.words ?? []).some((word) => word.startTimeMs !== null || word.endTimeMs !== null)
+);
+
+const phraseTimingSignature = (phrase: LyricTimingPhrase) => [
+  phrase.displayMode ?? "text",
+  phrase.text.trim()
+].join("\u0000");
+
+const copyPhraseTiming = (phrase: LyricTimingPhrase, previous: LyricTimingPhrase): LyricTimingPhrase => ({
+  ...phrase,
+  startTimeMs: previous.startTimeMs,
+  endTimeMs: previous.endTimeMs,
+  words: structuredClone(previous.words ?? [])
+});
+
+const matchPhraseSignatures = (previousPhrases: LyricTimingPhrase[], nextPhrases: LyricTimingPhrase[]) => {
+  const previousSignatures = previousPhrases.map(phraseTimingSignature);
+  const nextSignatures = nextPhrases.map(phraseTimingSignature);
+  const width = nextSignatures.length + 1;
+  const scores = new Uint16Array((previousSignatures.length + 1) * width);
+
+  for (let previousIndex = previousSignatures.length - 1; previousIndex >= 0; previousIndex -= 1) {
+    for (let nextIndex = nextSignatures.length - 1; nextIndex >= 0; nextIndex -= 1) {
+      const scoreIndex = previousIndex * width + nextIndex;
+      scores[scoreIndex] = previousSignatures[previousIndex] === nextSignatures[nextIndex]
+        ? scores[(previousIndex + 1) * width + nextIndex + 1] + 1
+        : Math.max(scores[(previousIndex + 1) * width + nextIndex], scores[scoreIndex + 1]);
+    }
+  }
+
+  const matches: Array<[number, number]> = [];
+  let previousIndex = 0;
+  let nextIndex = 0;
+  while (previousIndex < previousSignatures.length && nextIndex < nextSignatures.length) {
+    if (previousSignatures[previousIndex] === nextSignatures[nextIndex]) {
+      matches.push([previousIndex, nextIndex]);
+      previousIndex += 1;
+      nextIndex += 1;
+      continue;
+    }
+    if (scores[(previousIndex + 1) * width + nextIndex] > scores[previousIndex * width + nextIndex + 1]) {
+      previousIndex += 1;
+    } else {
+      nextIndex += 1;
+    }
+  }
+
+  return matches;
+};
 
 const normalizeSongleRef = (value: LyricTimingSongleRef | UnknownRecord | null | undefined) => {
   if (!value) return null;
@@ -293,6 +351,31 @@ export const createLyricTimingProject = (
     notes: options.notes?.slice(0, MAX_NOTES_LENGTH) ?? "",
     lines: parsed.lines,
     phrases: parsed.phrases
+  };
+};
+
+export const transferReparsedPhraseTiming = (
+  previousProject: LyricTimingProject,
+  nextProject: LyricTimingProject
+): TransferReparsedPhraseTimingResult => {
+  const matches = matchPhraseSignatures(previousProject.phrases, nextProject.phrases);
+  let kept = 0;
+  const previousByNextIndex = new Map<number, LyricTimingPhrase>();
+  for (const [previousIndex, nextIndex] of matches) {
+    const previous = previousProject.phrases[previousIndex];
+    previousByNextIndex.set(nextIndex, previous);
+    if (phraseHasTiming(previous)) kept += 1;
+  }
+
+  return {
+    project: {
+      ...nextProject,
+      phrases: nextProject.phrases.map((phrase, index) => {
+        const previous = previousByNextIndex.get(index);
+        return previous ? copyPhraseTiming(phrase, previous) : phrase;
+      })
+    },
+    kept
   };
 };
 

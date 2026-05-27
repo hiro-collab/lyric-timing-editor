@@ -4,6 +4,7 @@ import {
   makeLyricTimingExport,
   makeWebVttExport,
   normalizeLyricTimingProjectInput,
+  transferReparsedPhraseTiming,
   updateLyricTimingProjectMetadata,
   validateLyricTimingProject,
   type LyricTimingIssue,
@@ -990,63 +991,6 @@ const phraseHasTiming = (phrase: LyricTimingPhrase) => (
   phrase.endTimeMs !== null ||
   (phrase.words ?? []).some((word) => word.startTimeMs !== null || word.endTimeMs !== null)
 );
-
-const phraseTimingSignature = (phrase: LyricTimingPhrase) => [
-  phrase.displayMode ?? "text",
-  phrase.text.trim()
-].join("\u0000");
-
-const copyPhraseTiming = (phrase: LyricTimingPhrase, previous: LyricTimingPhrase): LyricTimingPhrase => ({
-  ...phrase,
-  startTimeMs: previous.startTimeMs,
-  endTimeMs: previous.endTimeMs,
-  words: structuredClone(previous.words ?? [])
-});
-
-const transferReparsedPhraseTiming = (
-  previousProject: LyricTimingProject,
-  nextProject: LyricTimingProject
-) => {
-  let kept = 0;
-
-  if (previousProject.phrases.length === nextProject.phrases.length) {
-    return {
-      project: {
-        ...nextProject,
-        phrases: nextProject.phrases.map((phrase, index) => {
-          const previous = previousProject.phrases[index];
-          if (phraseHasTiming(previous)) kept += 1;
-          return copyPhraseTiming(phrase, previous);
-        })
-      },
-      kept
-    };
-  }
-
-  let previousCursor = 0;
-  const phrases = nextProject.phrases.map((phrase) => {
-    const signature = phraseTimingSignature(phrase);
-    let matchedIndex = -1;
-    for (let cursor = previousCursor; cursor < previousProject.phrases.length; cursor += 1) {
-      if (phraseTimingSignature(previousProject.phrases[cursor]) !== signature) continue;
-      matchedIndex = cursor;
-      previousCursor = cursor + 1;
-      break;
-    }
-    if (matchedIndex < 0) return phrase;
-    const previous = previousProject.phrases[matchedIndex];
-    if (phraseHasTiming(previous)) kept += 1;
-    return copyPhraseTiming(phrase, previous);
-  });
-
-  return {
-    project: {
-      ...nextProject,
-      phrases
-    },
-    kept
-  };
-};
 
 const projectHasAnyTiming = () => project.phrases.some(phraseHasTiming);
 

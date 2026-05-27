@@ -80,6 +80,36 @@ test("Blank phrase markers create intentional no-lyric phrases", async () => {
   assert.equal(result.exportData.phrases[1].text, "");
 });
 
+test("Reparsed lyric timing follows unchanged phrases across line edits", async () => {
+  const { project } = await loadLyricsModules();
+  const original = project.createLyricTimingProject({
+    lyricText: "alpha\nbeta\ngamma"
+  });
+  original.phrases[0].startTimeMs = 1000;
+  original.phrases[1].startTimeMs = 2000;
+  original.phrases[2].startTimeMs = 3000;
+
+  const inserted = project.createLyricTimingProject({
+    lyricText: "alpha\ninserted\nbeta\ngamma"
+  });
+  const insertedTransfer = project.transferReparsedPhraseTiming(original, inserted);
+  assert.equal(insertedTransfer.kept, 3);
+  assert.deepEqual(
+    insertedTransfer.project.phrases.map((phrase) => phrase.startTimeMs),
+    [1000, null, 2000, 3000]
+  );
+
+  const edited = project.createLyricTimingProject({
+    lyricText: "alpha\nchanged\ngamma"
+  });
+  const editedTransfer = project.transferReparsedPhraseTiming(original, edited);
+  assert.equal(editedTransfer.kept, 2);
+  assert.deepEqual(
+    editedTransfer.project.phrases.map((phrase) => phrase.startTimeMs),
+    [1000, null, 3000]
+  );
+});
+
 test("v2 export blocks incomplete phrases and omits text for timing-only export", async () => {
   const { project, exportModule } = await loadLyricsModules();
   const workbenchProject = project.createLyricTimingProject({

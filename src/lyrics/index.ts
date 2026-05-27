@@ -20,13 +20,15 @@ export {
 export type {
   CreateLyricTimingProjectOptions,
   ParsedLyricText,
-  ParseLyricTextOptions
+  ParseLyricTextOptions,
+  TransferReparsedPhraseTimingResult
 } from "./lyricTimingProject";
 export {
   createLyricTimingProject,
   normalizeLyricTimingProjectInput,
   normalizeSlug,
   parseLyricText,
+  transferReparsedPhraseTiming,
   updateLyricTimingProjectMetadata
 } from "./lyricTimingProject";
 export type {
